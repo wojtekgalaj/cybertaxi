@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://bcabcyber001"]
 
 [ext_resource type="Script" path="res://scripts/player/cyber_cab.gd" id="1_cab"]
-[ext_resource type="Texture2D" path="res://assets/sprites/cab.png" id="2_tex"]
+[ext_resource type="Texture2D" path="res://assets/sprites/cab_drone.png" id="2_tex"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_cab"]
 size = Vector2(20, 14)
@@ -14,7 +14,10 @@ script = ExtResource("1_cab")
 
 [node name="Sprite" type="Sprite2D" parent="."]
 texture_filter = 1
+position = Vector2(0, -5)
 texture = ExtResource("2_tex")
+hframes = 8
+vframes = 36
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_cab")
@@ -22,10 +25,6 @@ shape = SubResource("RectangleShape2D_cab")
 [node name="LandRay" type="RayCast2D" parent="."]
 target_position = Vector2(0, 16)
 collision_mask = 4
-
-[node name="PropTimer" type="Timer" parent="."]
-wait_time = 0.08
-autostart = true
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position_smoothing_enabled = true

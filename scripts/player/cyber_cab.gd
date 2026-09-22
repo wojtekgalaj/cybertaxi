@@ -1,19 +1,23 @@
 extends CharacterBody2D
-## Head-on cyber cab. Banks when strafing; burns fuel; tracks ride bumpiness.
+## Drone cab. Heading picks a pre-drawn angle; rotors, lamp, and exhaust animate.
 
 signal landed_on_platform(platform: Node)
 signal took_off()
 signal out_of_fuel()
 
-const BANK_THRESHOLD := 35.0
+## Must match tools/gen_cab_sprite.py. 0° is nose-right, 90° is nose-up.
+const SHEET_ANGLES := 36
+const SHEET_STEP := 10.0
+const ANIM_FRAMES := 4
+const SHEET_COLUMNS := 8
+## Skids are 11px below the sheet center; this sits them on the pad top.
+const SPRITE_REST_Y := -5.0
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var land_ray: RayCast2D = $LandRay
-@onready var prop_timer: Timer = $PropTimer
 
-var tex_idle: Texture2D
-var tex_bank_l: Texture2D
-var tex_bank_r: Texture2D
+var _display_heading: float = 0.0
+var _anim_clock: float = 0.0
 
 var grounded: bool = false
 var current_platform: Node = null
@@ -27,12 +31,12 @@ var _takeoff_grace: float = 0.0
 
 
 func _ready() -> void:
-	tex_idle = preload("res://assets/sprites/cab.png")
-	tex_bank_l = preload("res://assets/sprites/cab_bank_l.png")
-	tex_bank_r = preload("res://assets/sprites/cab_bank_r.png")
-	sprite.texture = tex_idle
+	sprite.texture = preload("res://assets/sprites/cab_drone.png")
+	sprite.hframes = SHEET_COLUMNS
+	sprite.vframes = SHEET_ANGLES
+	sprite.frame = 0
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	prop_timer.timeout.connect(_on_prop_tick)
+	sprite.position = Vector2(0.0, SPRITE_REST_Y)
 
 
 func _physics_process(delta: float) -> void:
@@ -156,21 +160,40 @@ func has_passenger() -> bool:
 
 
 func _update_visuals() -> void:
-	if absf(velocity.x) > BANK_THRESHOLD:
-		sprite.texture = tex_bank_l if velocity.x < 0.0 else tex_bank_r
-	else:
-		sprite.texture = tex_idle
-	## Subtle hover bob when airborne.
+	var delta := get_physics_process_delta_time()
+	var speed := velocity.length()
+	var target := _rest_heading(_display_heading)
+	if speed > 26.0:
+		## Screen-up is -Y. 0° points right, 90° points up.
+		target = rad_to_deg(atan2(-velocity.y, velocity.x))
+	var response := 14.0 if speed > 26.0 else 7.0
+	var blend := 1.0 - exp(-response * delta)
+	_display_heading = rad_to_deg(lerp_angle(deg_to_rad(_display_heading), deg_to_rad(target), blend))
+
+	var wrapped := fposmod(_display_heading, 360.0)
+	var angle_idx := posmod(roundi(wrapped / SHEET_STEP), SHEET_ANGLES)
+	var rate := 8.0
 	if not grounded:
-		prop_phase += get_physics_process_delta_time() * 18.0
-		sprite.position.y = sin(prop_phase) * 1.0
-	else:
-		sprite.position.y = 0.0
+		rate = 13.0
+	if speed > 80.0:
+		rate = 18.0
+	_anim_clock += delta * rate
+	var anim := posmod(int(_anim_clock), ANIM_FRAMES)
+	var column := anim
+	if passenger != null:
+		column += ANIM_FRAMES
+	sprite.frame = angle_idx * SHEET_COLUMNS + column
+
+	var bob := 0.0
+	if not grounded:
+		prop_phase += delta * 9.0
+		bob = sin(prop_phase)
+	sprite.position = Vector2(0.0, SPRITE_REST_Y + bob)
 
 
-func _on_prop_tick() -> void:
-	pass
-
-
-func force_refuel_visual() -> void:
-	pass
+## Level off facing the way the nose was last pointed, instead of spinning to the right.
+func _rest_heading(current: float) -> float:
+	var a := fposmod(current, 360.0)
+	if a > 90.0 and a < 270.0:
+		return 180.0
+	return 0.0
