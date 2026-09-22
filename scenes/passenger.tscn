@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3 uid="uid://bpassenger001"]
+
+[ext_resource type="Script" path="res://scripts/world/passenger.gd" id="1_pax"]
+[ext_resource type="Texture2D" path="res://assets/sprites/passenger.png" id="2_tex"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_pax"]
+size = Vector2(12, 16)
+
+[node name="Passenger" type="Area2D"]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("1_pax")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_pax")
+
+[node name="WaveTimer" type="Timer" parent="."]
+wait_time = 0.6
+autostart = true

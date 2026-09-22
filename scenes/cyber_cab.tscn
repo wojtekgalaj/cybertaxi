@@ -1,0 +1,38 @@
+[gd_scene load_steps=4 format=3 uid="uid://bcabcyber001"]
+
+[ext_resource type="Script" path="res://scripts/player/cyber_cab.gd" id="1_cab"]
+[ext_resource type="Texture2D" path="res://assets/sprites/cab.png" id="2_tex"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_cab"]
+size = Vector2(20, 14)
+
+[node name="CyberCab" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 5
+motion_mode = 1
+script = ExtResource("1_cab")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_cab")
+
+[node name="LandRay" type="RayCast2D" parent="."]
+target_position = Vector2(0, 16)
+collision_mask = 4
+
+[node name="PropTimer" type="Timer" parent="."]
+wait_time = 0.08
+autostart = true
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position_smoothing_enabled = true
+position_smoothing_speed = 6.0
+drag_horizontal_enabled = true
+drag_vertical_enabled = true
+drag_left_margin = 0.2
+drag_top_margin = 0.2
+drag_right_margin = 0.2
+drag_bottom_margin = 0.2
