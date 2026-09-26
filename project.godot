@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 
 GameState="*res://autoload/game_state.gd"
 UpgradeDB="*res://autoload/upgrade_db.gd"
+CRTOverlay="*res://autoload/crt_overlay.gd"
 
 [display]
 
