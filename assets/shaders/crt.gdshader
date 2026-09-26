@@ -6,7 +6,7 @@ uniform sampler2D screen_texture : hint_screen_texture, filter_linear;
 uniform float curvature : hint_range(0.0, 0.25) = 0.06;
 uniform float scanline_strength : hint_range(0.0, 1.0) = 0.28;
 uniform float scanline_count : hint_range(60.0, 480.0) = 180.0;
-uniform float vignette_strength : hint_range(0.0, 1.5) = 0.55;
+uniform float vignette_strength : hint_range(0.0, 1.5) = 0.22;
 uniform float chroma_offset : hint_range(0.0, 0.004) = 0.0012;
 uniform float brightness : hint_range(0.5, 1.5) = 1.05;
 uniform float contrast : hint_range(0.5, 1.5) = 1.08;
