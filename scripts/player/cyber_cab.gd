@@ -118,6 +118,7 @@ func _land(platform: Node) -> void:
 	current_platform = platform
 	velocity = Vector2.ZERO
 	global_position.y = platform.global_position.y - 14.0
+	GameState.refill_fuel()
 	landed_on_platform.emit(platform)
 
 
