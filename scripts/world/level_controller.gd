@@ -33,7 +33,7 @@ func _ready() -> void:
 	rng.randomize()
 	_build_level()
 	cab.landed_on_platform.connect(_on_cab_landed)
-	status_message.emit("Pick up riders. Land with SPACE/E. Smooth & quick!")
+	status_message.emit("Dive to reclaim fuel. Land with SPACE/E. Smooth & quick!")
 
 
 func _build_level() -> void:

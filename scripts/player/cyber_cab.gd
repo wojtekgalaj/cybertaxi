@@ -6,6 +6,9 @@ signal took_off()
 signal out_of_fuel()
 
 const BANK_THRESHOLD := 35.0
+const GRAVITY := 180.0
+const FREEFALL_SPEED := 50.0 ## Downward vel needed to harvest gravity for fuel.
+const FREEFALL_REGEN := 22.0 ## Fuel restored per second while freefalling.
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var land_ray: RayCast2D = $LandRay
@@ -39,21 +42,26 @@ func _physics_process(delta: float) -> void:
 	if _takeoff_grace > 0.0:
 		_takeoff_grace = maxf(0.0, _takeoff_grace - delta)
 
-	if GameState.fuel <= 0.0 and not grounded:
-		velocity = velocity.move_toward(Vector2(0, 80), 200.0 * delta)
-		move_and_slide()
-		_update_visuals()
-		out_of_fuel.emit()
-		return
-
 	var input := Vector2(
 		Input.get_axis("move_left", "move_right"),
 		Input.get_axis("move_up", "move_down")
 	)
 	if input.length() > 1.0:
 		input = input.normalized()
-
 	var thrusting := input.length() > 0.1
+
+	if GameState.fuel <= 0.0 and not grounded:
+		velocity.y += GRAVITY * delta
+		velocity = velocity.move_toward(Vector2(velocity.x * 0.5, maxf(velocity.y, 120.0)), 280.0 * delta)
+		## Empty tank: always harvest while diving, ignore stuck thrust input.
+		_harvest_freefall_fuel(delta, false)
+		move_and_slide()
+		_check_landing()
+		_update_visuals()
+		if GameState.fuel <= 0.0:
+			out_of_fuel.emit()
+		return
+
 	if thrusting and not grounded:
 		velocity += input * GameState.thrust * delta
 	elif grounded and thrusting and input.y < -0.2:
@@ -64,18 +72,20 @@ func _physics_process(delta: float) -> void:
 		took_off.emit()
 		velocity.y = -GameState.thrust * 0.35 * delta * 60.0
 
-	## Soft gravity when airborne so hovering takes effort.
+	## Gravity pulls hard — dive to reclaim fuel.
 	if not grounded:
-		velocity.y += 55.0 * delta
+		velocity.y += GRAVITY * delta
 		velocity *= 1.0 / (1.0 + GameState.drag * delta)
 		if velocity.length() > GameState.max_speed:
 			velocity = velocity.limit_length(GameState.max_speed)
 
-		## Fuel
-		var burn := GameState.fuel_idle_burn
-		if thrusting:
-			burn = GameState.fuel_burn_rate
-		GameState.consume_fuel(burn * delta)
+		if _is_freefalling(thrusting):
+			_harvest_freefall_fuel(delta, thrusting)
+		else:
+			var burn := GameState.fuel_idle_burn
+			if thrusting:
+				burn = GameState.fuel_burn_rate
+			GameState.consume_fuel(burn * delta)
 
 		## Bumpiness = change in velocity (jerk proxy).
 		if passenger != null:
@@ -85,13 +95,25 @@ func _physics_process(delta: float) -> void:
 			ride_time += delta
 	else:
 		velocity = Vector2.ZERO
-		## Tiny idle burn on pad optional — skip to be nicer at start.
 
 	_prev_velocity = velocity
 	move_and_slide()
 	_check_landing()
 	_update_visuals()
 	_try_interact()
+
+
+func _is_freefalling(thrusting: bool) -> bool:
+	## No thrust + diving = gravity harvest.
+	return not thrusting and velocity.y >= FREEFALL_SPEED
+
+
+func _harvest_freefall_fuel(delta: float, thrusting: bool) -> void:
+	if not _is_freefalling(thrusting):
+		return
+	## Faster fall → denser harvest (capped).
+	var rate := FREEFALL_REGEN * clampf(velocity.y / 140.0, 0.6, 1.6)
+	GameState.regain_fuel(rate * delta)
 
 
 func _check_landing() -> void:
@@ -118,7 +140,6 @@ func _land(platform: Node) -> void:
 	current_platform = platform
 	velocity = Vector2.ZERO
 	global_position.y = platform.global_position.y - 14.0
-	GameState.refill_fuel()
 	landed_on_platform.emit(platform)
 
 

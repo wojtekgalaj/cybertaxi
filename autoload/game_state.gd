@@ -99,6 +99,10 @@ func consume_fuel(amount: float) -> void:
 	set_fuel(fuel - amount)
 
 
+func regain_fuel(amount: float) -> void:
+	set_fuel(fuel + amount)
+
+
 func refill_fuel() -> void:
 	set_fuel(max_fuel)
 
