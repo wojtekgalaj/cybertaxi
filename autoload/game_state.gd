@@ -21,13 +21,13 @@ var fares_required_this_level: int = 3
 var owned_upgrades: Array[String] = []
 
 ## Live cab stats (recomputed from upgrades).
-var thrust: float = 420.0
-var drag: float = 2.8
+var thrust: float = 480.0
+var drag: float = 1.6 ## Base air drag; district air_friction multiplies this.
 var fuel_burn_rate: float = 8.0
 var fuel_idle_burn: float = 1.5
 var stability: float = 1.0 ## Higher = less bumpiness penalty.
 var tip_bonus: float = 0.0 ## Extra fare multiplier.
-var max_speed: float = 220.0
+var max_speed: float = 240.0
 
 
 func _ready() -> void:
@@ -54,13 +54,13 @@ func _fares_for_level(lvl: int) -> int:
 
 func _recompute_stats() -> void:
 	max_fuel = BASE_MAX_FUEL
-	thrust = 420.0
-	drag = 2.8
+	thrust = 480.0
+	drag = 1.6
 	fuel_burn_rate = 8.0
 	fuel_idle_burn = 1.5
 	stability = 1.0
 	tip_bonus = 0.0
-	max_speed = 220.0
+	max_speed = 240.0
 	for id in owned_upgrades:
 		var up: Dictionary = UpgradeDB.get_upgrade(id)
 		if up.is_empty():

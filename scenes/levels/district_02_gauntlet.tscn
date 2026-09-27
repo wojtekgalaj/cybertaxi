@@ -7,8 +7,12 @@
 
 [node name="Level" type="Node2D" unique_id=1430864231]
 script = ExtResource("1_2d4n6")
-hand_authored = true
 building_count = 12
+dimension_name = "Iron Drift"
+gravity = 275.0
+air_friction = 0.42
+inertia = 3.1
+map_size = Vector2(1200, 800)
 
 [node name="World" type="Node2D" parent="." unique_id=1522165670]
 

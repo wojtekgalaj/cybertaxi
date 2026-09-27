@@ -1,15 +1,21 @@
 # Stage design — new districts (tilemap)
 
-Hand-authored levels live under `scenes/levels/`. The run loads them from `data/level_catalog.gd` in order (level 1 → index 0, then wraps).
+Districts live under `scenes/levels/` and load from `data/level_catalog.gd` (level 1 → index 0, then wraps).
 
-Paint layouts with **TileMapLayer** nodes using `assets/tiles/district_tileset.tres` (16×16 tiles).
+**All pads and hazards are painted on TileMapLayers.** Passengers still spawn randomly on those pads and ask for a random other pad.
 
 ## Quick recipe
 
 1. **Duplicate** `level_template.tscn` or an existing district (e.g. `district_01_rooftops.tscn`).
 2. Name it clearly, e.g. `district_03_your_name.tscn`.
-3. On the root `Level` node, set **`map_size`** to the playable bounds.
-4. Select **`World/PlatformsLayer`** and paint platform tiles from the tileset:
+3. On the root `Level` node:
+   - Set **`map_size`** to the playable bounds
+   - Set **Dimension** exports (each district is its own physics pocket):
+     - `dimension_name` — shown in the HUD status line
+     - `gravity` — downward pull (e.g. 155 light, 275 heavy)
+     - `air_friction` — drag multiplier (`1` = baseline, `<1` = icy slide, `>1` = thick air)
+     - `inertia` — cab mass feel (`2.4` responsive-heavy, `3+` sluggish)
+4. Select **`World/PlatformsLayer`** and paint platform tiles from `assets/tiles/district_tileset.tres`:
    - **Single / left / mid / right** — compose short or long pads in a horizontal run
    - **Start** (gold top) — put on one cell of the spawn pad (that whole run becomes pad **A**)
 5. Select **`World/HazardsLayer`** and paint **hazard** pylons / blocks the cab must avoid.
@@ -34,7 +40,7 @@ At level start, `TileLevelBuilder`:
 3. Spawns an **underside hazard** under every pad — flying into a pad from below fails the run.
 4. Spawns avoid-hazards for every cell on `HazardsLayer`.
 
-Tile art stays on the TileMapLayers; physics bodies are generated.
+Tile art stays on the TileMapLayers; physics bodies are generated. Riders appear on random pads and request a random other pad.
 
 ## Tileset roles (`district_tiles.png`)
 
@@ -57,12 +63,12 @@ Optional example-district regenerator: `tools/build_tile_districts.gd`.
 
 | Node | Role |
 |------|------|
-| `Level` (`level_controller.gd`) | Map size, fares, win/lose |
-| `World/PlatformsLayer` | Paint landable pads |
+| `Level` (`level_controller.gd`) | Map size, dimension physics, fares, win/lose |
+| `World/PlatformsLayer` | Paint landable pads (required) |
 | `World/HazardsLayer` | Paint pylons / no-fly tiles |
 | `World/Platforms` | Runtime pad bodies (do not hand-place) |
 | `World/Hazards` | Runtime underside + pylon areas |
-| `World/Passengers` | Runtime spawns |
+| `World/Passengers` | Runtime random jobs |
 | `World/Decor` | Sky / buildings |
 | `World/Bounds` | Walls from `map_size` |
 | `World/CyberCab` | Player |
@@ -74,7 +80,11 @@ Optional example-district regenerator: `tools/build_tile_districts.gd`.
 - Undersides are lethal — route dives around pads, not through them.
 - Freefall (no thrust while falling) still regenerates fuel.
 - Pylons and pads show on the minimap.
+- Tune **gravity / air_friction / inertia** so each district feels like a different dimension.
 
-## Legacy note
+## Example dimensions
 
-Instance-based `hand_authored` platforms under `World/Platforms` still work if the tile layers are empty. Prefer tile painting for new districts.
+| District | Name | g | friction | inertia |
+|----------|------|---|----------|---------|
+| 01 rooftops | Neon Shelf | 155 | 1.15 | 2.4 |
+| 02 gauntlet | Iron Drift | 275 | 0.42 | 3.1 |

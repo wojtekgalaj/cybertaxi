@@ -141,7 +141,6 @@ func _write_district(path: String, map_size: Vector2, platform_runs: Array, haza
 	var root := Node2D.new()
 	root.name = "Level"
 	root.set_script(load(LVL_SCRIPT))
-	root.set("hand_authored", true)
 	root.set("map_size", map_size)
 	root.set("building_count", 12)
 	root.set("scatter_buildings", true)
@@ -199,7 +198,6 @@ func _write_template() -> void:
 	root.name = "Level"
 	root.set_script(load(LVL_SCRIPT))
 	root.set("map_size", Vector2(1100, 720))
-	root.set("platform_count", 5)
 	root.set("building_count", 16)
 	var world := Node2D.new()
 	world.name = "World"

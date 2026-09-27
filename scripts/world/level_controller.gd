@@ -1,6 +1,5 @@
 extends Node2D
-## Fare loop + layout. Prefer TileMapLayer painting (PlatformsLayer / HazardsLayer).
-## Legacy: hand-placed Platform/Hazard instances, or procedural spawn.
+## District runner: tile-painted pads/hazards, random passenger jobs, dimension physics.
 
 signal fare_paid(amount: int, happiness: float)
 signal level_won()
@@ -8,14 +7,17 @@ signal level_lost(reason: String)
 signal status_message(text: String)
 
 const PassengerScene := preload("res://scenes/passenger.tscn")
-const PlatformScene := preload("res://scenes/platform.tscn")
 
-@export var hand_authored: bool = false ## Legacy instance placement (ignored if tile layers present).
 @export var map_size: Vector2 = Vector2(1200, 800)
-@export var platform_count: int = 5
 @export var building_count: int = 18
 @export var fill_sky: bool = true
 @export var scatter_buildings: bool = true
+
+@export_group("Dimension")
+@export var dimension_name: String = "Prime Strip"
+@export var gravity: float = 180.0 ## Downward pull this dimension.
+@export var air_friction: float = 1.0 ## Multiplier on cab drag. Lower = icy / slides forever.
+@export var inertia: float = 2.6 ## Cab mass feel. Higher = harder to vector.
 
 @onready var world: Node2D = $World
 @onready var platforms_root: Node2D = $World/Platforms
@@ -42,17 +44,23 @@ func _ready() -> void:
 	rng.randomize()
 	platforms_layer = world.get_node_or_null("PlatformsLayer") as TileMapLayer
 	hazards_layer = world.get_node_or_null("HazardsLayer") as TileMapLayer
+	_apply_dimension_to_cab()
 	_build_level()
 	cab.landed_on_platform.connect(_on_cab_landed)
-	status_message.emit("Dive to reclaim fuel. Avoid pylons & pad undersides. SPACE/E on pads.")
-
-
-func uses_tilemap() -> bool:
-	return (
-		platforms_layer != null
-		and platforms_layer.tile_set != null
-		and platforms_layer.get_used_cells().size() > 0
+	status_message.emit(
+		"%s — g %.0f · friction %.2f · inertia %.1f. Dive to refuel."
+		% [dimension_name, gravity, air_friction, inertia]
 	)
+
+
+func _apply_dimension_to_cab() -> void:
+	if cab and cab.has_method("apply_dimension"):
+		cab.apply_dimension({
+			"name": dimension_name,
+			"gravity": gravity,
+			"friction": air_friction,
+			"inertia": inertia,
+		})
 
 
 func _build_level() -> void:
@@ -66,34 +74,21 @@ func _build_level() -> void:
 	if fill_sky or scatter_buildings:
 		_spawn_decor()
 
-	if uses_tilemap():
+	if platforms_layer == null or platforms_layer.tile_set == null:
+		push_error("%s: missing World/PlatformsLayer with a TileSet. Paint pads in the editor." % name)
+	elif platforms_layer.get_used_cells().is_empty():
+		push_error("%s: PlatformsLayer has no tiles. Paint at least two pads." % name)
+	else:
 		var built: Dictionary = TileLevelBuilder.build(
 			platforms_layer, hazards_layer, platforms_root, hazards_root
 		)
 		platforms.assign(built.get("platforms", []))
 		hazards.assign(built.get("hazards", []))
-	elif hand_authored:
-		_collect_hand_layout()
-	else:
-		for c in platforms_root.get_children():
-			c.queue_free()
-		for c in hazards_root.get_children():
-			c.queue_free()
-		_spawn_platforms()
 
 	_wire_hazards()
 	_place_cab_on_start()
 	_spawn_waiting_passengers()
 	_draw_bounds_visual()
-
-
-func _collect_hand_layout() -> void:
-	platforms.clear()
-	hazards.clear()
-	for p in platforms_root.get_children():
-		platforms.append(p)
-	for h in hazards_root.get_children():
-		hazards.append(h)
 
 
 func _wire_hazards() -> void:
@@ -142,40 +137,6 @@ func _spawn_decor() -> void:
 			decor_root.add_child(s)
 
 
-func _spawn_platforms() -> void:
-	var ids := ["A", "B", "C", "D", "E", "F", "G", "H"]
-	var count := mini(platform_count + GameState.level / 2, ids.size())
-	var margin := 80.0
-	var positions: Array[Vector2] = []
-	var cols := ceili(sqrt(float(count)))
-	var rows := ceili(float(count) / float(cols))
-	var cell_w := (map_size.x - margin * 2.0) / maxf(cols, 1)
-	var cell_h := (map_size.y - margin * 2.0) / maxf(rows, 1)
-	var idx := 0
-	for r in rows:
-		for c in cols:
-			if idx >= count:
-				break
-			var base := Vector2(
-				margin + cell_w * (c + 0.5),
-				margin + cell_h * (r + 0.5)
-			)
-			base += Vector2(rng.randf_range(-cell_w * 0.25, cell_w * 0.25),
-				rng.randf_range(-cell_h * 0.25, cell_h * 0.25))
-			positions.append(base)
-			idx += 1
-
-	for i in positions.size():
-		var p: Node = PlatformScene.instantiate()
-		p.platform_id = ids[i]
-		p.label_text = ids[i]
-		if i == 0:
-			p.is_start = true
-		platforms_root.add_child(p)
-		p.global_position = positions[i]
-		platforms.append(p)
-
-
 func _place_cab_on_start() -> void:
 	if platforms.is_empty():
 		return
@@ -191,9 +152,10 @@ func _place_cab_on_start() -> void:
 
 
 func _spawn_waiting_passengers() -> void:
+	## Random jobs on the hand-built pads.
 	var needed := GameState.fares_required_this_level - GameState.fares_completed_this_level
 	var waiting := passengers_root.get_child_count()
-	var to_spawn := mini(needed - waiting, platforms.size() - 1)
+	var to_spawn := mini(needed - waiting, maxi(platforms.size() - 1, 0))
 	to_spawn = maxi(to_spawn, 0)
 	if waiting + to_spawn < mini(2, needed):
 		to_spawn = mini(2, needed) - waiting

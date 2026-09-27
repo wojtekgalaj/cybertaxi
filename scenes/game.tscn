@@ -1,9 +1,9 @@
-[gd_scene load_steps=3 format=3 uid="uid://bgame001"]
+[gd_scene format=3 uid="uid://bgame001"]
 
-[ext_resource type="Script" path="res://scripts/game_root.gd" id="1_root"]
-[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="3_hud"]
+[ext_resource type="Script" uid="uid://c0hb3uxouq30p" path="res://scripts/game_root.gd" id="1_root"]
+[ext_resource type="PackedScene" uid="uid://bhud001" path="res://scenes/ui/hud.tscn" id="3_hud"]
 
-[node name="Game" type="Node"]
+[node name="Game" type="Node" unique_id=2006789255]
 script = ExtResource("1_root")
 
-[node name="HUD" parent="." instance=ExtResource("3_hud")]
+[node name="HUD" parent="." unique_id=1822264609 instance=ExtResource("3_hud")]

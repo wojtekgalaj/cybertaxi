@@ -6,9 +6,12 @@
 
 [node name="Level2" type="Node2D" unique_id=518882840]
 script = ExtResource("1_y4lei")
-hand_authored = true
 map_size = Vector2(1100, 720)
 building_count = 12
+dimension_name = "Neon Shelf"
+gravity = 155.0
+air_friction = 1.15
+inertia = 2.4
 
 [node name="World" type="Node2D" parent="." unique_id=1510985517]
 

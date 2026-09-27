@@ -1,14 +1,14 @@
 extends CharacterBody2D
-## Head-on cyber cab. Banks when strafing; burns fuel; tracks ride bumpiness.
+## Head-on cyber cab. Heavy inertia; dimension gravity/friction come from the level.
 
 signal landed_on_platform(platform: Node)
 signal took_off()
 signal out_of_fuel()
 
-const BANK_THRESHOLD := 35.0
-const GRAVITY := 180.0
-const FREEFALL_SPEED := 50.0 ## Downward vel needed to harvest gravity for fuel.
-const FREEFALL_REGEN := 22.0 ## Fuel restored per second while freefalling.
+const BANK_THRESHOLD := 28.0
+const DEFAULT_GRAVITY := 180.0
+const DEFAULT_FRICTION := 1.0
+const DEFAULT_INERTIA := 0.6 ## Higher = slower to accelerate / change heading.
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var land_ray: RayCast2D = $LandRay
@@ -20,10 +20,21 @@ var tex_bank_r: Texture2D
 
 var grounded: bool = false
 var current_platform: Node = null
-var passenger: Node = null ## Rider aboard (Passenger node).
+var passenger: Node = null
+
+var dim_name: String = "Prime Strip"
+var dim_gravity: float = DEFAULT_GRAVITY
+var dim_friction: float = DEFAULT_FRICTION
+var dim_inertia: float = DEFAULT_INERTIA
+
+## Live-tweakable (debug panel).
+var freefall_speed: float = 50.0
+var freefall_regen: float = 22.0
+var soft_land_speed: float = 110.0
+var soft_land_ray_speed: float = 120.0
 
 var _prev_velocity: Vector2 = Vector2.ZERO
-var bump_accumulator: float = 0.0 ## Integrated jerk while carrying passenger.
+var bump_accumulator: float = 0.0
 var ride_time: float = 0.0
 var prop_phase: float = 0.0
 var _takeoff_grace: float = 0.0
@@ -39,6 +50,22 @@ func _ready() -> void:
 	prop_timer.timeout.connect(_on_prop_tick)
 
 
+func apply_dimension(settings: Dictionary) -> void:
+	dim_name = str(settings.get("name", dim_name))
+	dim_gravity = float(settings.get("gravity", DEFAULT_GRAVITY))
+	dim_friction = float(settings.get("friction", DEFAULT_FRICTION))
+	dim_inertia = maxf(0.05, float(settings.get("inertia", DEFAULT_INERTIA)))
+
+
+func _accel() -> float:
+	## Thrust budget spread over inertia — heavy cab = sluggish vectoring.
+	return GameState.thrust / dim_inertia
+
+
+func _drag_coeff() -> float:
+	return GameState.drag * dim_friction
+
+
 func _physics_process(delta: float) -> void:
 	if _takeoff_grace > 0.0:
 		_takeoff_grace = maxf(0.0, _takeoff_grace - delta)
@@ -52,9 +79,12 @@ func _physics_process(delta: float) -> void:
 	var thrusting := input.length() > 0.1
 
 	if GameState.fuel <= 0.0 and not grounded:
-		velocity.y += GRAVITY * delta
-		velocity = velocity.move_toward(Vector2(velocity.x * 0.5, maxf(velocity.y, 120.0)), 280.0 * delta)
-		## Empty tank: always harvest while diving, ignore stuck thrust input.
+		velocity.y += dim_gravity * delta
+		_apply_drag(delta)
+		velocity = velocity.move_toward(
+			Vector2(velocity.x * 0.85, maxf(velocity.y, dim_gravity * 0.55)),
+			(120.0 / dim_inertia) * delta
+		)
 		_harvest_freefall_fuel(delta, false)
 		move_and_slide()
 		_check_landing()
@@ -64,19 +94,18 @@ func _physics_process(delta: float) -> void:
 		return
 
 	if thrusting and not grounded:
-		velocity += input * GameState.thrust * delta
+		## Momentum-heavy: add acceleration, don't snap velocity to input.
+		velocity += input * _accel() * delta
 	elif grounded and thrusting and input.y < -0.2:
-		## Take off upward.
 		grounded = false
 		current_platform = null
-		_takeoff_grace = 0.35
+		_takeoff_grace = 0.4
 		took_off.emit()
-		velocity.y = -GameState.thrust * 0.35 * delta * 60.0
+		velocity.y = -_accel() * 0.55
 
-	## Gravity pulls hard — dive to reclaim fuel.
 	if not grounded:
-		velocity.y += GRAVITY * delta
-		velocity *= 1.0 / (1.0 + GameState.drag * delta)
+		velocity.y += dim_gravity * delta
+		_apply_drag(delta)
 		if velocity.length() > GameState.max_speed:
 			velocity = velocity.limit_length(GameState.max_speed)
 
@@ -88,10 +117,10 @@ func _physics_process(delta: float) -> void:
 				burn = GameState.fuel_burn_rate
 			GameState.consume_fuel(burn * delta)
 
-		## Bumpiness = change in velocity (jerk proxy).
 		if passenger != null:
 			var dv := (velocity - _prev_velocity).length()
-			var bump := maxf(0.0, dv - 18.0) ## Deadzone for gentle flight.
+			## Tighter deadzone — inertia makes big vector changes costly for tips.
+			var bump := maxf(0.0, dv - 12.0)
 			bump_accumulator += bump * delta / maxf(0.2, GameState.stability)
 			ride_time += delta
 	else:
@@ -104,24 +133,26 @@ func _physics_process(delta: float) -> void:
 	_try_interact()
 
 
+func _apply_drag(delta: float) -> void:
+	## Low dimension friction = icy slide; high = thick air.
+	velocity *= 1.0 / (1.0 + _drag_coeff() * delta)
+
+
 func _is_freefalling(thrusting: bool) -> bool:
-	## No thrust + diving = gravity harvest.
-	return not thrusting and velocity.y >= FREEFALL_SPEED
+	return not thrusting and velocity.y >= freefall_speed
 
 
 func _harvest_freefall_fuel(delta: float, thrusting: bool) -> void:
 	if not _is_freefalling(thrusting):
 		return
-	## Faster fall → denser harvest (capped).
-	var rate := FREEFALL_REGEN * clampf(velocity.y / 140.0, 0.6, 1.6)
+	var rate := freefall_regen * clampf(velocity.y / maxf(100.0, dim_gravity * 0.75), 0.6, 1.6)
 	GameState.regain_fuel(rate * delta)
 
 
 func _check_landing() -> void:
 	if grounded or _takeoff_grace > 0.0:
 		return
-	## Soft landing: slow & near a platform area.
-	if velocity.length() > 90.0:
+	if velocity.length() > soft_land_speed:
 		return
 	for i in get_slide_collision_count():
 		var col := get_slide_collision(i)
@@ -129,10 +160,9 @@ func _check_landing() -> void:
 		if collider and collider.is_in_group("platforms"):
 			_land(collider)
 			return
-	## Also allow proximity land via ray / overlap.
 	if land_ray.is_colliding():
 		var hit := land_ray.get_collider()
-		if hit and hit.is_in_group("platforms") and velocity.y >= 0.0 and velocity.length() < 100.0:
+		if hit and hit.is_in_group("platforms") and velocity.y >= 0.0 and velocity.length() < soft_land_ray_speed:
 			_land(hit)
 
 
@@ -152,8 +182,6 @@ func _try_interact() -> void:
 		return
 	if not grounded or current_platform == null:
 		return
-	## Pickup / dropoff handled by LevelController listening to signal + polling.
-	## Emit again so level can process interact.
 	landed_on_platform.emit(current_platform)
 
 
@@ -165,7 +193,6 @@ func begin_ride(pax: Node) -> void:
 
 
 func end_ride() -> Dictionary:
-	## Returns ride quality metrics for fare calc.
 	var result := {
 		"bump": bump_accumulator,
 		"time": ride_time,
@@ -186,7 +213,6 @@ func _update_visuals() -> void:
 		sprite.texture = tex_bank_l if velocity.x < 0.0 else tex_bank_r
 	else:
 		sprite.texture = tex_idle
-	## Subtle hover bob when airborne.
 	if not grounded:
 		prop_phase += get_physics_process_delta_time() * 18.0
 		sprite.position.y = sin(prop_phase) * 1.0

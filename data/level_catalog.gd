@@ -1,6 +1,6 @@
 extends RefCounted
 class_name LevelCatalog
-## Hand-authored district scenes. Index 0 = GameState.level 1.
+## Painted district scenes. Index 0 = GameState.level 1.
 ## Add new .tscn paths here after you design them in the editor.
 
 const FALLBACK := "res://scenes/levels/level_template.tscn"

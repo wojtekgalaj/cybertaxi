@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://bdebugtweaks"]
+
+[ext_resource type="Script" path="res://scripts/ui/debug_tweaks.gd" id="1_dbg"]
+
+[node name="DebugTweaks" type="CanvasLayer"]
+layer = 200
+script = ExtResource("1_dbg")
