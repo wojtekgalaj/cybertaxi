@@ -1,9 +1,19 @@
 extends Node
-## Root game runner: wires HUD to the level.
+## Root game runner: loads the district for the current run level, wires HUD.
 
-@onready var level: Node2D = $Level
 @onready var hud: CanvasLayer = $HUD
+
+var level: Node2D = null
 
 
 func _ready() -> void:
+	var path := LevelCatalog.scene_path_for(GameState.level)
+	var packed: PackedScene = load(path)
+	if packed == null:
+		push_error("Missing level scene: %s" % path)
+		packed = load(LevelCatalog.FALLBACK)
+	level = packed.instantiate()
+	level.name = "Level"
+	add_child(level)
+	move_child(level, 0)
 	hud.bind_level(level)

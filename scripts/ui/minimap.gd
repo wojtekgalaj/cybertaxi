@@ -48,6 +48,9 @@ func _draw() -> void:
 			continue
 		var pp: Vector2 = ppos * scale_v
 		draw_circle(pp, 1.5, Color(1.0, 0.85, 0.2))
+	for hpos in data.get("hazards", []):
+		var hp: Vector2 = hpos * scale_v
+		draw_rect(Rect2(hp - Vector2(1.5, 2), Vector2(3, 4)), Color(1.0, 0.25, 0.35, 0.9))
 	var cab: Vector2 = data.get("cab_pos", Vector2.ZERO) * scale_v
 	draw_circle(cab, 2.5, Color(0.2, 1.0, 0.6))
 

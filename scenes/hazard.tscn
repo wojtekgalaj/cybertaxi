@@ -1,0 +1,31 @@
+[gd_scene format=3 uid="uid://bha0ard001"]
+
+[ext_resource type="Script" path="res://scripts/world/hazard.gd" id="1_haz"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hazard.png" id="2_tex"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_haz"]
+size = Vector2(14, 22)
+
+[node name="Hazard" type="Area2D"]
+collision_layer = 16
+collision_mask = 2
+monitoring = true
+script = ExtResource("1_haz")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_haz")
+
+[node name="Label" type="Label" parent="."]
+visible = false
+offset_left = -16.0
+offset_top = -28.0
+offset_right = 16.0
+offset_bottom = -14.0
+theme_override_colors/font_color = Color(1, 0.35, 0.45, 1)
+theme_override_font_sizes/font_size = 9
+text = ""
+horizontal_alignment = 1

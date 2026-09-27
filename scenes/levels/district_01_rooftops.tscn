@@ -1,0 +1,63 @@
+[gd_scene format=3 uid="uid://bdistrict01"]
+
+[ext_resource type="Script" path="res://scripts/world/level_controller.gd" id="1_lvl"]
+[ext_resource type="PackedScene" path="res://scenes/cyber_cab.tscn" id="2_cab"]
+[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="3_plat"]
+[ext_resource type="PackedScene" path="res://scenes/hazard.tscn" id="4_haz"]
+
+[node name="Level" type="Node2D"]
+script = ExtResource("1_lvl")
+hand_authored = true
+map_size = Vector2(1100, 720)
+building_count = 12
+scatter_buildings = true
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Decor" type="Node2D" parent="World"]
+
+[node name="Platforms" type="Node2D" parent="World"]
+
+[node name="PadA" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(140, 520)
+platform_id = "A"
+label_text = "A"
+is_start = true
+
+[node name="PadB" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(420, 280)
+platform_id = "B"
+label_text = "B"
+
+[node name="PadC" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(700, 480)
+platform_id = "C"
+label_text = "C"
+
+[node name="PadD" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(920, 200)
+platform_id = "D"
+label_text = "D"
+
+[node name="PadE" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(560, 140)
+platform_id = "E"
+label_text = "E"
+
+[node name="Hazards" type="Node2D" parent="World"]
+
+[node name="Pylon1" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(300, 400)
+
+[node name="Pylon2" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(580, 360)
+
+[node name="Pylon3" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(780, 300)
+
+[node name="Passengers" type="Node2D" parent="World"]
+
+[node name="Bounds" type="Node2D" parent="World"]
+
+[node name="CyberCab" parent="World" instance=ExtResource("2_cab")]
+position = Vector2(140, 500)

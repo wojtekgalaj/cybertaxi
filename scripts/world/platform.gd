@@ -3,6 +3,7 @@ extends StaticBody2D
 
 @export var platform_id: String = "A"
 @export var label_text: String = "A"
+@export var is_start: bool = false ## Hand-authored: cab spawns docked here.
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var label: Label = $Label

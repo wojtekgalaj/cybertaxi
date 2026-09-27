@@ -1,5 +1,7 @@
 extends Node2D
-## Spawns platforms/passengers, handles pickup/dropoff, win/lose, next level.
+## Spawns passengers, handles pickup/dropoff, win/lose.
+## Hand-authored: place Platform + Hazard instances under World/Platforms and World/Hazards,
+## tick `hand_authored`, set map_size, mark one pad with is_start.
 
 signal fare_paid(amount: int, happiness: float)
 signal level_won()
@@ -9,12 +11,16 @@ signal status_message(text: String)
 const PassengerScene := preload("res://scenes/passenger.tscn")
 const PlatformScene := preload("res://scenes/platform.tscn")
 
+@export var hand_authored: bool = false
 @export var map_size: Vector2 = Vector2(1200, 800)
-@export var platform_count: int = 5
+@export var platform_count: int = 5 ## Procedural only.
 @export var building_count: int = 18
+@export var fill_sky: bool = true
+@export var scatter_buildings: bool = true ## Off for hand-authored if you place your own decor.
 
 @onready var world: Node2D = $World
 @onready var platforms_root: Node2D = $World/Platforms
+@onready var hazards_root: Node2D = $World/Hazards
 @onready var decor_root: Node2D = $World/Decor
 @onready var passengers_root: Node2D = $World/Passengers
 @onready var cab: CharacterBody2D = $World/CyberCab
@@ -22,6 +28,7 @@ const PlatformScene := preload("res://scenes/platform.tscn")
 @onready var bounds: Node2D = $World/Bounds
 
 var platforms: Array[Node] = []
+var hazards: Array[Node] = []
 var active_destination: Node = null
 var rng := RandomNumberGenerator.new()
 var _lost: bool = false
@@ -33,55 +40,88 @@ func _ready() -> void:
 	rng.randomize()
 	_build_level()
 	cab.landed_on_platform.connect(_on_cab_landed)
-	status_message.emit("Dive to reclaim fuel. Land with SPACE/E. Smooth & quick!")
+	status_message.emit("Dive to reclaim fuel. Avoid red pylons. SPACE/E on pads.")
 
 
 func _build_level() -> void:
-	## Clear
-	for c in platforms_root.get_children():
-		c.queue_free()
 	for c in passengers_root.get_children():
 		c.queue_free()
+	if not hand_authored:
+		for c in platforms_root.get_children():
+			c.queue_free()
+		for c in hazards_root.get_children():
+			c.queue_free()
 	for c in decor_root.get_children():
 		c.queue_free()
 	platforms.clear()
+	hazards.clear()
 
-	_spawn_decor()
-	_spawn_platforms()
-	_place_cab_on_first()
+	if fill_sky or scatter_buildings:
+		_spawn_decor()
+	if hand_authored:
+		_collect_hand_layout()
+	else:
+		_spawn_platforms()
+	_wire_hazards()
+	_place_cab_on_start()
 	_spawn_waiting_passengers()
 	_draw_bounds_visual()
+
+
+func _collect_hand_layout() -> void:
+	## Wait a frame isn't needed — children exist when _ready runs on parent after kids.
+	for p in platforms_root.get_children():
+		if p.is_in_group("platforms") or p.has_method("get_dock_global"):
+			platforms.append(p)
+	## Platforms add_to_group in their _ready; child _ready runs before parent, so groups are set.
+	if platforms.is_empty():
+		for p in platforms_root.get_children():
+			platforms.append(p)
+	for h in hazards_root.get_children():
+		hazards.append(h)
+
+
+func _wire_hazards() -> void:
+	for h in hazards:
+		if h.has_signal("struck") and not h.struck.is_connected(_on_hazard_struck):
+			h.struck.connect(_on_hazard_struck)
+
+
+func _on_hazard_struck(_hazard: Node) -> void:
+	if _lost or _won:
+		return
+	_fail("Hit a no-fly pylon")
 
 
 func _spawn_decor() -> void:
 	var sky_tex: Texture2D = preload("res://assets/sprites/sky.png")
 	var bldg_tex: Texture2D = preload("res://assets/sprites/building.png")
-	## Tiled night sky
-	var tile := 64
-	var cols := int(map_size.x / tile) + 2
-	var rows := int(map_size.y / tile) + 2
-	for y in rows:
-		for x in cols:
+	if fill_sky:
+		var tile := 64
+		var cols := int(map_size.x / tile) + 2
+		var rows := int(map_size.y / tile) + 2
+		for y in rows:
+			for x in cols:
+				var s := Sprite2D.new()
+				s.texture = sky_tex
+				s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+				s.centered = false
+				s.position = Vector2(x * tile - 32, y * tile - 32)
+				s.z_index = -20
+				decor_root.add_child(s)
+	if scatter_buildings:
+		for i in building_count:
 			var s := Sprite2D.new()
-			s.texture = sky_tex
+			s.texture = bldg_tex
 			s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			s.centered = false
-			s.position = Vector2(x * tile - 32, y * tile - 32)
-			s.modulate = Color(1, 1, 1, 1)
-			s.z_index = -20
+			s.centered = true
+			s.position = Vector2(
+				rng.randf_range(40, map_size.x - 40),
+				rng.randf_range(80, map_size.y - 40)
+			)
+			s.z_index = -10
+			s.modulate = Color(1, 1, 1, 0.85)
 			decor_root.add_child(s)
-	for i in building_count:
-		var s := Sprite2D.new()
-		s.texture = bldg_tex
-		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		s.centered = true
-		s.position = Vector2(
-			rng.randf_range(40, map_size.x - 40),
-			rng.randf_range(80, map_size.y - 40)
-		)
-		s.z_index = -10
-		s.modulate = Color(1, 1, 1, 0.85)
-		decor_root.add_child(s)
 
 
 func _spawn_platforms() -> void:
@@ -89,7 +129,6 @@ func _spawn_platforms() -> void:
 	var count := mini(platform_count + GameState.level / 2, ids.size())
 	var margin := 80.0
 	var positions: Array[Vector2] = []
-	## Guaranteed spread: place on a loose grid then jitter.
 	var cols := ceili(sqrt(float(count)))
 	var rows := ceili(float(count) / float(cols))
 	var cell_w := (map_size.x - margin * 2.0) / maxf(cols, 1)
@@ -112,15 +151,21 @@ func _spawn_platforms() -> void:
 		var p: Node = PlatformScene.instantiate()
 		p.platform_id = ids[i]
 		p.label_text = ids[i]
+		if i == 0:
+			p.is_start = true
 		platforms_root.add_child(p)
 		p.global_position = positions[i]
 		platforms.append(p)
 
 
-func _place_cab_on_first() -> void:
+func _place_cab_on_start() -> void:
 	if platforms.is_empty():
 		return
 	var home: Node = platforms[0]
+	for p in platforms:
+		if p.get("is_start"):
+			home = p
+			break
 	cab.global_position = home.get_dock_global() + Vector2(0, -4)
 	cab.grounded = true
 	cab.current_platform = home
@@ -128,12 +173,10 @@ func _place_cab_on_first() -> void:
 
 
 func _spawn_waiting_passengers() -> void:
-	## Keep enough jobs in play for the level quota.
 	var needed := GameState.fares_required_this_level - GameState.fares_completed_this_level
 	var waiting := passengers_root.get_child_count()
 	var to_spawn := mini(needed - waiting, platforms.size() - 1)
 	to_spawn = maxi(to_spawn, 0)
-	## Also keep at least 2 waiting early for feel.
 	if waiting + to_spawn < mini(2, needed):
 		to_spawn = mini(2, needed) - waiting
 	for _i in to_spawn:
@@ -167,7 +210,6 @@ func _spawn_one_passenger() -> void:
 func _on_cab_landed(platform: Node) -> void:
 	if _lost or _won:
 		return
-	## Dropoff first
 	if cab.has_passenger():
 		var dest: Node = cab.passenger.get_destination()
 		if platform == dest:
@@ -175,7 +217,6 @@ func _on_cab_landed(platform: Node) -> void:
 		else:
 			status_message.emit("Wrong pad — need %s" % str(dest.label_text))
 		return
-	## Pickup
 	for pax in passengers_root.get_children():
 		if pax.waiting and pax.origin_platform == platform:
 			_pickup(pax)
@@ -241,7 +282,6 @@ func _process(delta: float) -> void:
 
 
 func check_fail_conditions() -> void:
-	## Kept for HUD hook; main fail handled in _process.
 	pass
 
 
@@ -251,7 +291,6 @@ func _fail(reason: String) -> void:
 
 
 func _draw_bounds_visual() -> void:
-	## Invisible walls via StaticBody segments.
 	for c in bounds.get_children():
 		c.queue_free()
 	_add_wall(Rect2(0, -20, map_size.x, 20))
@@ -276,5 +315,6 @@ func get_minimap_data() -> Dictionary:
 		"map_size": map_size,
 		"cab_pos": cab.global_position,
 		"platforms": platforms.map(func(p): return {"pos": p.global_position, "id": p.platform_id, "dest": p == active_destination}),
+		"hazards": hazards.map(func(h): return h.global_position),
 		"passengers": passengers_root.get_children().map(func(pax): return pax.global_position if pax.waiting else null),
 	}

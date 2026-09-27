@@ -15,6 +15,8 @@ building_count = 16
 
 [node name="Platforms" type="Node2D" parent="World"]
 
+[node name="Hazards" type="Node2D" parent="World"]
+
 [node name="Passengers" type="Node2D" parent="World"]
 
 [node name="Bounds" type="Node2D" parent="World"]

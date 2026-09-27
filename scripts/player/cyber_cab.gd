@@ -30,6 +30,7 @@ var _takeoff_grace: float = 0.0
 
 
 func _ready() -> void:
+	add_to_group("player")
 	tex_idle = preload("res://assets/sprites/cab.png")
 	tex_bank_l = preload("res://assets/sprites/cab_bank_l.png")
 	tex_bank_r = preload("res://assets/sprites/cab_bank_r.png")

@@ -1,0 +1,101 @@
+[gd_scene format=3 uid="uid://bdistrict02"]
+
+[ext_resource type="Script" path="res://scripts/world/level_controller.gd" id="1_lvl"]
+[ext_resource type="PackedScene" path="res://scenes/cyber_cab.tscn" id="2_cab"]
+[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="3_plat"]
+[ext_resource type="PackedScene" path="res://scenes/hazard.tscn" id="4_haz"]
+
+[node name="Level" type="Node2D"]
+script = ExtResource("1_lvl")
+hand_authored = true
+map_size = Vector2(1200, 800)
+building_count = 10
+scatter_buildings = true
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Decor" type="Node2D" parent="World"]
+
+[node name="Platforms" type="Node2D" parent="World"]
+
+[node name="PadA" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(100, 640)
+platform_id = "A"
+label_text = "A"
+is_start = true
+
+[node name="PadB" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(100, 200)
+platform_id = "B"
+label_text = "B"
+
+[node name="PadC" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(600, 420)
+platform_id = "C"
+label_text = "C"
+
+[node name="PadD" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(1080, 180)
+platform_id = "D"
+label_text = "D"
+
+[node name="PadE" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(1080, 680)
+platform_id = "E"
+label_text = "E"
+
+[node name="PadF" parent="World/Platforms" instance=ExtResource("3_plat")]
+position = Vector2(600, 120)
+platform_id = "F"
+label_text = "F"
+
+[node name="Hazards" type="Node2D" parent="World"]
+
+[node name="WallL1" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(280, 520)
+
+[node name="WallL2" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(280, 440)
+
+[node name="WallL3" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(280, 360)
+
+[node name="WallL4" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(280, 280)
+
+[node name="Mid1" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(480, 300)
+
+[node name="Mid2" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(520, 520)
+
+[node name="Mid3" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(720, 300)
+
+[node name="Mid4" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(680, 560)
+
+[node name="WallR1" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(900, 280)
+
+[node name="WallR2" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(900, 360)
+
+[node name="WallR3" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(900, 440)
+
+[node name="WallR4" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(900, 520)
+
+[node name="Gate1" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(600, 260)
+
+[node name="Gate2" parent="World/Hazards" instance=ExtResource("4_haz")]
+position = Vector2(600, 580)
+
+[node name="Passengers" type="Node2D" parent="World"]
+
+[node name="Bounds" type="Node2D" parent="World"]
+
+[node name="CyberCab" parent="World" instance=ExtResource("2_cab")]
+position = Vector2(100, 620)
