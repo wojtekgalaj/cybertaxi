@@ -140,7 +140,10 @@ func _land(platform: Node) -> void:
 	grounded = true
 	current_platform = platform
 	velocity = Vector2.ZERO
-	global_position.y = platform.global_position.y - 14.0
+	if platform.has_method("get_dock_global"):
+		global_position = platform.get_dock_global() + Vector2(0, -4)
+	else:
+		global_position.y = platform.global_position.y - 14.0
 	landed_on_platform.emit(platform)
 
 

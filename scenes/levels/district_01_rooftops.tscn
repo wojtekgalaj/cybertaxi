@@ -1,63 +1,35 @@
-[gd_scene format=3 uid="uid://bdistrict01"]
+[gd_scene format=4 uid="uid://bdistrict01"]
 
-[ext_resource type="Script" path="res://scripts/world/level_controller.gd" id="1_lvl"]
-[ext_resource type="PackedScene" path="res://scenes/cyber_cab.tscn" id="2_cab"]
-[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="3_plat"]
-[ext_resource type="PackedScene" path="res://scenes/hazard.tscn" id="4_haz"]
+[ext_resource type="Script" uid="uid://d3l7ksmu4ry0m" path="res://scripts/world/level_controller.gd" id="1_y4lei"]
+[ext_resource type="TileSet" uid="uid://d365olwv185co" path="res://assets/tiles/district_tileset.tres" id="2_wwt2t"]
+[ext_resource type="PackedScene" uid="uid://bcabcyber001" path="res://scenes/cyber_cab.tscn" id="3_4t1gy"]
 
-[node name="Level" type="Node2D"]
-script = ExtResource("1_lvl")
+[node name="Level2" type="Node2D" unique_id=518882840]
+script = ExtResource("1_y4lei")
 hand_authored = true
 map_size = Vector2(1100, 720)
 building_count = 12
-scatter_buildings = true
 
-[node name="World" type="Node2D" parent="."]
+[node name="World" type="Node2D" parent="." unique_id=1510985517]
 
-[node name="Decor" type="Node2D" parent="World"]
+[node name="Decor" type="Node2D" parent="World" unique_id=718591475]
 
-[node name="Platforms" type="Node2D" parent="World"]
+[node name="Platforms" type="Node2D" parent="World" unique_id=42362306]
 
-[node name="PadA" parent="World/Platforms" instance=ExtResource("3_plat")]
-position = Vector2(140, 520)
-platform_id = "A"
-label_text = "A"
-is_start = true
+[node name="Hazards" type="Node2D" parent="World" unique_id=1098349997]
 
-[node name="PadB" parent="World/Platforms" instance=ExtResource("3_plat")]
-position = Vector2(420, 280)
-platform_id = "B"
-label_text = "B"
+[node name="Passengers" type="Node2D" parent="World" unique_id=7179750]
 
-[node name="PadC" parent="World/Platforms" instance=ExtResource("3_plat")]
-position = Vector2(700, 480)
-platform_id = "C"
-label_text = "C"
+[node name="Bounds" type="Node2D" parent="World" unique_id=2141020803]
 
-[node name="PadD" parent="World/Platforms" instance=ExtResource("3_plat")]
-position = Vector2(920, 200)
-platform_id = "D"
-label_text = "D"
+[node name="PlatformsLayer" type="TileMapLayer" parent="World" unique_id=1227641589]
+z_index = -1
+tile_map_data = PackedByteArray("AAAGACAAAAABAAEAAAAHACAAAAACAAAAAAAIACAAAAACAAAAAAAJACAAAAADAAAAAAAWABIAAAABAAAAAAAXABIAAAACAAAAAAAYABIAAAACAAAAAAAZABIAAAACAAAAAAAaABIAAAACAAAAAAAbABIAAAACAAAAAAAcABIAAAADAAAAAAAoAB4AAAABAAAAAAApAB4AAAACAAAAAAAqAB4AAAACAAAAAAArAB4AAAADAAAAAAA0AAwAAAABAAAAAAA1AAwAAAACAAAAAAA2AAwAAAACAAAAAAA3AAwAAAACAAAAAAA4AAwAAAACAAAAAAA5AAwAAAACAAAAAAA6AAwAAAADAAAAAAAeAAgAAAABAAAAAAAfAAgAAAACAAAAAAAgAAgAAAACAAAAAAAhAAgAAAACAAAAAAAiAAgAAAADAAAAAAA=")
+tile_set = ExtResource("2_wwt2t")
 
-[node name="PadE" parent="World/Platforms" instance=ExtResource("3_plat")]
-position = Vector2(560, 140)
-platform_id = "E"
-label_text = "E"
+[node name="HazardsLayer" type="TileMapLayer" parent="World" unique_id=1922419353]
+z_index = -1
+tile_map_data = PackedByteArray("AAAQABgAAAAAAAEAAAAiABYAAAAAAAEAAAAuABIAAAAAAAEAAAAUAA4AAAAAAAEAAAAwABwAAAAAAAEAAAAsAB4AAAAAAAEAAAAsAB0AAAAAAAEAAAAsABwAAAAAAAEAAAAsABsAAAAAAAEAAAALAB8AAAAAAAEAAAALAB4AAAAAAAEAAAALAB0AAAAAAAEAAAA=")
+tile_set = ExtResource("2_wwt2t")
 
-[node name="Hazards" type="Node2D" parent="World"]
-
-[node name="Pylon1" parent="World/Hazards" instance=ExtResource("4_haz")]
-position = Vector2(300, 400)
-
-[node name="Pylon2" parent="World/Hazards" instance=ExtResource("4_haz")]
-position = Vector2(580, 360)
-
-[node name="Pylon3" parent="World/Hazards" instance=ExtResource("4_haz")]
-position = Vector2(780, 300)
-
-[node name="Passengers" type="Node2D" parent="World"]
-
-[node name="Bounds" type="Node2D" parent="World"]
-
-[node name="CyberCab" parent="World" instance=ExtResource("2_cab")]
-position = Vector2(140, 500)
+[node name="CyberCab" parent="World" unique_id=1226105999 instance=ExtResource("3_4t1gy")]

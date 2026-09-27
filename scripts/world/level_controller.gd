@@ -1,7 +1,6 @@
 extends Node2D
-## Spawns passengers, handles pickup/dropoff, win/lose.
-## Hand-authored: place Platform + Hazard instances under World/Platforms and World/Hazards,
-## tick `hand_authored`, set map_size, mark one pad with is_start.
+## Fare loop + layout. Prefer TileMapLayer painting (PlatformsLayer / HazardsLayer).
+## Legacy: hand-placed Platform/Hazard instances, or procedural spawn.
 
 signal fare_paid(amount: int, happiness: float)
 signal level_won()
@@ -11,12 +10,12 @@ signal status_message(text: String)
 const PassengerScene := preload("res://scenes/passenger.tscn")
 const PlatformScene := preload("res://scenes/platform.tscn")
 
-@export var hand_authored: bool = false
+@export var hand_authored: bool = false ## Legacy instance placement (ignored if tile layers present).
 @export var map_size: Vector2 = Vector2(1200, 800)
-@export var platform_count: int = 5 ## Procedural only.
+@export var platform_count: int = 5
 @export var building_count: int = 18
 @export var fill_sky: bool = true
-@export var scatter_buildings: bool = true ## Off for hand-authored if you place your own decor.
+@export var scatter_buildings: bool = true
 
 @onready var world: Node2D = $World
 @onready var platforms_root: Node2D = $World/Platforms
@@ -26,6 +25,9 @@ const PlatformScene := preload("res://scenes/platform.tscn")
 @onready var cab: CharacterBody2D = $World/CyberCab
 @onready var camera: Camera2D = $World/CyberCab/Camera2D
 @onready var bounds: Node2D = $World/Bounds
+
+var platforms_layer: TileMapLayer = null
+var hazards_layer: TileMapLayer = null
 
 var platforms: Array[Node] = []
 var hazards: Array[Node] = []
@@ -38,19 +40,24 @@ var _fuel_dead_timer: float = 0.0
 
 func _ready() -> void:
 	rng.randomize()
+	platforms_layer = world.get_node_or_null("PlatformsLayer") as TileMapLayer
+	hazards_layer = world.get_node_or_null("HazardsLayer") as TileMapLayer
 	_build_level()
 	cab.landed_on_platform.connect(_on_cab_landed)
-	status_message.emit("Dive to reclaim fuel. Avoid red pylons. SPACE/E on pads.")
+	status_message.emit("Dive to reclaim fuel. Avoid pylons & pad undersides. SPACE/E on pads.")
+
+
+func uses_tilemap() -> bool:
+	return (
+		platforms_layer != null
+		and platforms_layer.tile_set != null
+		and platforms_layer.get_used_cells().size() > 0
+	)
 
 
 func _build_level() -> void:
 	for c in passengers_root.get_children():
 		c.queue_free()
-	if not hand_authored:
-		for c in platforms_root.get_children():
-			c.queue_free()
-		for c in hazards_root.get_children():
-			c.queue_free()
 	for c in decor_root.get_children():
 		c.queue_free()
 	platforms.clear()
@@ -58,10 +65,22 @@ func _build_level() -> void:
 
 	if fill_sky or scatter_buildings:
 		_spawn_decor()
-	if hand_authored:
+
+	if uses_tilemap():
+		var built: Dictionary = TileLevelBuilder.build(
+			platforms_layer, hazards_layer, platforms_root, hazards_root
+		)
+		platforms.assign(built.get("platforms", []))
+		hazards.assign(built.get("hazards", []))
+	elif hand_authored:
 		_collect_hand_layout()
 	else:
+		for c in platforms_root.get_children():
+			c.queue_free()
+		for c in hazards_root.get_children():
+			c.queue_free()
 		_spawn_platforms()
+
 	_wire_hazards()
 	_place_cab_on_start()
 	_spawn_waiting_passengers()
@@ -69,14 +88,10 @@ func _build_level() -> void:
 
 
 func _collect_hand_layout() -> void:
-	## Wait a frame isn't needed — children exist when _ready runs on parent after kids.
+	platforms.clear()
+	hazards.clear()
 	for p in platforms_root.get_children():
-		if p.is_in_group("platforms") or p.has_method("get_dock_global"):
-			platforms.append(p)
-	## Platforms add_to_group in their _ready; child _ready runs before parent, so groups are set.
-	if platforms.is_empty():
-		for p in platforms_root.get_children():
-			platforms.append(p)
+		platforms.append(p)
 	for h in hazards_root.get_children():
 		hazards.append(h)
 
@@ -87,10 +102,13 @@ func _wire_hazards() -> void:
 			h.struck.connect(_on_hazard_struck)
 
 
-func _on_hazard_struck(_hazard: Node) -> void:
+func _on_hazard_struck(hazard: Node) -> void:
 	if _lost or _won:
 		return
-	_fail("Hit a no-fly pylon")
+	var reason := "Hit a no-fly pylon"
+	if hazard.has_meta("underside_of"):
+		reason = "Struck underside of pad %s" % str(hazard.get_meta("underside_of"))
+	_fail(reason)
 
 
 func _spawn_decor() -> void:
