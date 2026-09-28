@@ -6,29 +6,27 @@ class_name TileLevelBuilder
 const TILE := 16
 const PlatformScene := preload("res://scenes/platform.tscn")
 const HazardScene := preload("res://scenes/hazard.tscn")
+const LightScene := preload("res://scenes/light_source.tscn")
 const UndersideScript := preload("res://scripts/world/underside_hazard.gd")
 
 const ROLE_PLATFORM := "platform"
 const ROLE_START := "start"
 const ROLE_HAZARD := "hazard"
+const ROLE_LIGHT := "light"
 
 
 static func build(
 	platforms_layer: TileMapLayer,
 	hazards_layer: TileMapLayer,
+	lights_layer: TileMapLayer,
 	platforms_root: Node2D,
-	hazards_root: Node2D
+	hazards_root: Node2D,
+	lights_root: Node2D
 ) -> Dictionary:
 	var out_platforms: Array[Node] = []
 	var out_hazards: Array[Node] = []
+	var out_lights: Array[Node] = []
 
-	for c in platforms_root.get_children():
-		c.queue_free()
-	for c in hazards_root.get_children():
-		c.queue_free()
-
-	## Freeing is deferred; clear refs now and rebuild after a sync isn't available —
-	## call after ensuring roots start empty, or remove_child immediately.
 	while platforms_root.get_child_count() > 0:
 		var n: Node = platforms_root.get_child(0)
 		platforms_root.remove_child(n)
@@ -37,16 +35,19 @@ static func build(
 		var n2: Node = hazards_root.get_child(0)
 		hazards_root.remove_child(n2)
 		n2.free()
+	while lights_root.get_child_count() > 0:
+		var n3: Node = lights_root.get_child(0)
+		lights_root.remove_child(n3)
+		n3.free()
 
 	var platform_cells: Dictionary = {}
 	if platforms_layer and platforms_layer.tile_set:
 		for cell in platforms_layer.get_used_cells():
 			var role := _cell_role(platforms_layer, cell)
 			if role == ROLE_PLATFORM or role == ROLE_START or role == "":
-				## Empty role still counts if atlas tile looks like platform row 0 / start.
 				if role == "" and not _looks_like_platform(platforms_layer, cell):
 					continue
-				if role == ROLE_HAZARD:
+				if role == ROLE_HAZARD or role == ROLE_LIGHT:
 					continue
 				platform_cells[cell] = role if role != "" else ROLE_PLATFORM
 
@@ -80,13 +81,24 @@ static func build(
 	if hazards_layer and hazards_layer.tile_set:
 		for cell in hazards_layer.get_used_cells():
 			var role := _cell_role(hazards_layer, cell)
-			if role == ROLE_PLATFORM or role == ROLE_START:
+			if role == ROLE_PLATFORM or role == ROLE_START or role == ROLE_LIGHT:
 				continue
 			var h := _spawn_tile_hazard(cell, hazards_layer)
 			hazards_root.add_child(h)
 			out_hazards.append(h)
 
-	return {"platforms": out_platforms, "hazards": out_hazards}
+	if lights_layer and lights_layer.tile_set:
+		for cell in lights_layer.get_used_cells():
+			var role := _cell_role(lights_layer, cell)
+			if role != ROLE_LIGHT and role != "":
+				## Any painted cell on LightsLayer counts as a lamp.
+				if role == ROLE_PLATFORM or role == ROLE_START or role == ROLE_HAZARD:
+					continue
+			var lamp := _spawn_tile_light(cell, lights_layer)
+			lights_root.add_child(lamp)
+			out_lights.append(lamp)
+
+	return {"platforms": out_platforms, "hazards": out_hazards, "lights": out_lights}
 
 
 static func _looks_like_platform(layer: TileMapLayer, cell: Vector2i) -> bool:
@@ -194,7 +206,12 @@ static func _spawn_underside_hazard(run: Array, layer: TileMapLayer, pad: Node) 
 static func _spawn_tile_hazard(cell: Vector2i, layer: TileMapLayer) -> Node:
 	var h: Node = HazardScene.instantiate()
 	h.position = layer.map_to_local(cell)
-	## Hide sprite if the tilemap already draws the hazard art.
 	if h.has_node("Sprite"):
 		h.get_node("Sprite").visible = false
 	return h
+
+
+static func _spawn_tile_light(cell: Vector2i, layer: TileMapLayer) -> Node:
+	var lamp: Node = LightScene.instantiate()
+	lamp.position = layer.map_to_local(cell)
+	return lamp

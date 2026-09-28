@@ -1,14 +1,14 @@
 extends CharacterBody2D
-## Head-on cyber cab. Heavy inertia; dimension gravity/friction come from the level.
+## Head-on cyber cab driven by QuadMotorPhysics. Batteries charge in light cones.
 
 signal landed_on_platform(platform: Node)
 signal took_off()
-signal out_of_fuel()
+signal out_of_battery()
 
-const BANK_THRESHOLD := 28.0
+const BANK_TILT := 0.22
 const DEFAULT_GRAVITY := 180.0
 const DEFAULT_FRICTION := 1.0
-const DEFAULT_INERTIA := 0.6 ## Higher = slower to accelerate / change heading.
+const DEFAULT_INERTIA := 3.2
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var land_ray: RayCast2D = $LandRay
@@ -21,18 +21,17 @@ var tex_bank_r: Texture2D
 var grounded: bool = false
 var current_platform: Node = null
 var passenger: Node = null
+var in_light: bool = false
 
 var dim_name: String = "Prime Strip"
 var dim_gravity: float = DEFAULT_GRAVITY
 var dim_friction: float = DEFAULT_FRICTION
 var dim_inertia: float = DEFAULT_INERTIA
 
-## Live-tweakable (debug panel).
-var freefall_speed: float = 50.0
-var freefall_regen: float = 22.0
-var soft_land_speed: float = 110.0
-var soft_land_ray_speed: float = 120.0
+var soft_land_speed: float = 100.0
+var soft_land_ray_speed: float = 110.0
 
+var flight := QuadMotorPhysics.new()
 var _prev_velocity: Vector2 = Vector2.ZERO
 var bump_accumulator: float = 0.0
 var ride_time: float = 0.0
@@ -47,28 +46,52 @@ func _ready() -> void:
 	tex_bank_r = preload("res://assets/sprites/cab_bank_r.png")
 	sprite.texture = tex_idle
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.z_index = 10
+	## Stay readable in dark districts — small self-light + unshaded fill.
+	sprite.modulate = Color(1.15, 1.15, 1.2, 1.0)
+	_ensure_nav_light()
 	prop_timer.timeout.connect(_on_prop_tick)
+	flight.apply_dimension(dim_gravity, dim_friction, dim_inertia)
+	flight.max_speed = GameState.max_speed
+	flight.retune_motors(GameState.thrust)
+
+
+func _ensure_nav_light() -> void:
+	if get_node_or_null("NavLight") != null:
+		return
+	var nav := PointLight2D.new()
+	nav.name = "NavLight"
+	nav.color = Color(0.55, 0.95, 1.0, 1.0)
+	nav.energy = 0.85
+	nav.texture_scale = 0.55
+	## Soft omni blob so the cab silhouette always reads.
+	var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	for y in 32:
+		for x in 32:
+			var d := Vector2(x - 15.5, y - 15.5).length() / 16.0
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			a *= a
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	nav.texture = ImageTexture.create_from_image(img)
+	nav.shadow_enabled = false
+	add_child(nav)
 
 
 func apply_dimension(settings: Dictionary) -> void:
 	dim_name = str(settings.get("name", dim_name))
 	dim_gravity = float(settings.get("gravity", DEFAULT_GRAVITY))
 	dim_friction = float(settings.get("friction", DEFAULT_FRICTION))
-	dim_inertia = maxf(0.05, float(settings.get("inertia", DEFAULT_INERTIA)))
-
-
-func _accel() -> float:
-	## Thrust budget spread over inertia — heavy cab = sluggish vectoring.
-	return GameState.thrust / dim_inertia
-
-
-func _drag_coeff() -> float:
-	return GameState.drag * dim_friction
+	dim_inertia = maxf(0.4, float(settings.get("inertia", DEFAULT_INERTIA)))
+	flight.apply_dimension(dim_gravity, dim_friction, dim_inertia)
+	flight.retune_motors(GameState.thrust)
 
 
 func _physics_process(delta: float) -> void:
 	if _takeoff_grace > 0.0:
 		_takeoff_grace = maxf(0.0, _takeoff_grace - delta)
+
+	flight.max_speed = GameState.max_speed
+	flight.retune_motors(GameState.thrust)
 
 	var input := Vector2(
 		Input.get_axis("move_left", "move_right"),
@@ -76,77 +99,55 @@ func _physics_process(delta: float) -> void:
 	)
 	if input.length() > 1.0:
 		input = input.normalized()
-	var thrusting := input.length() > 0.1
 
-	if GameState.fuel <= 0.0 and not grounded:
-		velocity.y += dim_gravity * delta
-		_apply_drag(delta)
-		velocity = velocity.move_toward(
-			Vector2(velocity.x * 0.85, maxf(velocity.y, dim_gravity * 0.55)),
-			(120.0 / dim_inertia) * delta
-		)
-		_harvest_freefall_fuel(delta, false)
-		move_and_slide()
-		_check_landing()
-		_update_visuals()
-		if GameState.fuel <= 0.0:
-			out_of_fuel.emit()
-		return
+	_update_light_charge(delta)
 
-	if thrusting and not grounded:
-		## Momentum-heavy: add acceleration, don't snap velocity to input.
-		velocity += input * _accel() * delta
-	elif grounded and thrusting and input.y < -0.2:
-		grounded = false
-		current_platform = null
-		_takeoff_grace = 0.4
-		took_off.emit()
-		velocity.y = -_accel() * 0.55
-
-	if not grounded:
-		velocity.y += dim_gravity * delta
-		_apply_drag(delta)
-		if velocity.length() > GameState.max_speed:
-			velocity = velocity.limit_length(GameState.max_speed)
-
-		if _is_freefalling(thrusting):
-			_harvest_freefall_fuel(delta, thrusting)
+	var has_power := GameState.battery > 0.0
+	if grounded:
+		flight.reset()
+		velocity = Vector2.ZERO
+		if has_power and input.y < -0.2:
+			grounded = false
+			current_platform = null
+			_takeoff_grace = 0.55
+			took_off.emit()
+			flight.set_motor_mix(Vector2(0, -1), true)
+			flight.velocity = Vector2(0, -90)
+			velocity = flight.velocity
+	else:
+		flight.set_motor_mix(input, has_power)
+		flight.integrate(delta)
+		velocity = flight.velocity
+		if has_power:
+			var burn := GameState.battery_idle_burn
+			if flight.is_spooling():
+				burn = lerpf(GameState.battery_idle_burn, GameState.battery_burn_rate, flight.average_throttle())
+			GameState.consume_battery(burn * delta)
 		else:
-			var burn := GameState.fuel_idle_burn
-			if thrusting:
-				burn = GameState.fuel_burn_rate
-			GameState.consume_fuel(burn * delta)
+			out_of_battery.emit()
 
 		if passenger != null:
 			var dv := (velocity - _prev_velocity).length()
-			## Tighter deadzone — inertia makes big vector changes costly for tips.
-			var bump := maxf(0.0, dv - 12.0)
+			var bump := maxf(0.0, dv - 10.0)
 			bump_accumulator += bump * delta / maxf(0.2, GameState.stability)
 			ride_time += delta
-	else:
-		velocity = Vector2.ZERO
 
 	_prev_velocity = velocity
 	move_and_slide()
+	if not grounded:
+		flight.velocity = velocity
 	_check_landing()
 	_update_visuals()
 	_try_interact()
 
 
-func _apply_drag(delta: float) -> void:
-	## Low dimension friction = icy slide; high = thick air.
-	velocity *= 1.0 / (1.0 + _drag_coeff() * delta)
-
-
-func _is_freefalling(thrusting: bool) -> bool:
-	return not thrusting and velocity.y >= freefall_speed
-
-
-func _harvest_freefall_fuel(delta: float, thrusting: bool) -> void:
-	if not _is_freefalling(thrusting):
-		return
-	var rate := freefall_regen * clampf(velocity.y / maxf(100.0, dim_gravity * 0.75), 0.6, 1.6)
-	GameState.regain_fuel(rate * delta)
+func _update_light_charge(delta: float) -> void:
+	in_light = false
+	for light in get_tree().get_nodes_in_group("light_sources"):
+		if light.has_method("illuminates") and light.illuminates(global_position):
+			in_light = true
+			GameState.charge_battery(float(light.charge_rate) * delta)
+			break
 
 
 func _check_landing() -> void:
@@ -170,6 +171,7 @@ func _land(platform: Node) -> void:
 	grounded = true
 	current_platform = platform
 	velocity = Vector2.ZERO
+	flight.reset()
 	if platform.has_method("get_dock_global"):
 		global_position = platform.get_dock_global() + Vector2(0, -4)
 	else:
@@ -209,20 +211,20 @@ func has_passenger() -> bool:
 
 
 func _update_visuals() -> void:
-	if absf(velocity.x) > BANK_THRESHOLD:
+	if absf(flight.tilt) > BANK_TILT:
+		sprite.texture = tex_bank_l if flight.tilt < 0.0 else tex_bank_r
+	elif absf(velocity.x) > 40.0:
 		sprite.texture = tex_bank_l if velocity.x < 0.0 else tex_bank_r
 	else:
 		sprite.texture = tex_idle
 	if not grounded:
-		prop_phase += get_physics_process_delta_time() * 18.0
+		prop_phase += get_physics_process_delta_time() * (14.0 + flight.average_throttle() * 20.0)
 		sprite.position.y = sin(prop_phase) * 1.0
+		sprite.rotation = flight.tilt * 0.35
 	else:
 		sprite.position.y = 0.0
+		sprite.rotation = 0.0
 
 
 func _on_prop_tick() -> void:
-	pass
-
-
-func force_refuel_visual() -> void:
 	pass

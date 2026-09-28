@@ -1,6 +1,6 @@
-[gd_resource type="TileSet" format=3 uid="uid://d365olwv185co"]
+[gd_resource type="TileSet" format=3]
 
-[ext_resource type="Texture2D" uid="uid://cj7ddjwwx0ark" path="res://assets/tiles/district_tiles.png" id="1_qcfhr"]
+[ext_resource type="Texture2D" path="res://assets/tiles/district_tiles.png" id="1_qcfhr"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_m5f6e"]
 texture = ExtResource("1_qcfhr")
@@ -20,6 +20,8 @@ texture = ExtResource("1_qcfhr")
 2:1/0/custom_data_0 = "platform"
 3:1/0 = 0
 3:1/0/custom_data_0 = "hazard"
+0:2/0 = 0
+0:2/0/custom_data_0 = "light"
 
 [resource]
 custom_data_layer_0/name = "role"

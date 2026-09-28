@@ -5,38 +5,45 @@
 [ext_resource type="PackedScene" path="res://scenes/cyber_cab.tscn" id="3_7dmyl"]
 [ext_resource type="Script" path="res://scripts/player/cyber_cab.gd" id="4_tbtya"]
 
-[node name="Level" type="Node2D" unique_id=1430864231]
+[node name="Level" type="Node2D" unique_id=1027625948]
 script = ExtResource("1_2d4n6")
 building_count = 12
+ambient_light = Color(0.32, 0.36, 0.48, 1)
 dimension_name = "Iron Drift"
 gravity = 275.0
 air_friction = 0.42
-inertia = 3.1
-map_size = Vector2(1200, 800)
+inertia = 4.0
 
-[node name="World" type="Node2D" parent="." unique_id=1522165670]
+[node name="World" type="Node2D" parent="." unique_id=294807287]
 
-[node name="Decor" type="Node2D" parent="World" unique_id=454114489]
+[node name="Decor" type="Node2D" parent="World" unique_id=353533305]
 
-[node name="Platforms" type="Node2D" parent="World" unique_id=399000141]
+[node name="Platforms" type="Node2D" parent="World" unique_id=610484649]
 
-[node name="Hazards" type="Node2D" parent="World" unique_id=1536705712]
+[node name="Hazards" type="Node2D" parent="World" unique_id=1493560049]
 
-[node name="Passengers" type="Node2D" parent="World" unique_id=136030775]
+[node name="Lights" type="Node2D" parent="World" unique_id=628959017]
 
-[node name="Bounds" type="Node2D" parent="World" unique_id=615221271]
+[node name="Passengers" type="Node2D" parent="World" unique_id=628632173]
 
-[node name="PlatformsLayer" type="TileMapLayer" parent="World" unique_id=2040189322]
+[node name="Bounds" type="Node2D" parent="World" unique_id=173234256]
+
+[node name="PlatformsLayer" type="TileMapLayer" parent="World" unique_id=1963892329]
 z_index = -1
 tile_map_data = PackedByteArray("AAAEACgAAAABAAEAAAAFACgAAAACAAAAAAAGACgAAAACAAAAAAAHACgAAAACAAAAAAAIACgAAAADAAAAAAAEAAwAAAABAAAAAAAFAAwAAAACAAAAAAAGAAwAAAACAAAAAAAHAAwAAAACAAAAAAAIAAwAAAADAAAAAAAiABoAAAABAAAAAAAjABoAAAACAAAAAAAkABoAAAACAAAAAAAlABoAAAACAAAAAAAmABoAAAACAAAAAAAnABoAAAACAAAAAAAoABoAAAADAAAAAABAAAoAAAABAAAAAABBAAoAAAACAAAAAABCAAoAAAACAAAAAABDAAoAAAACAAAAAABEAAoAAAADAAAAAABAACoAAAABAAAAAABBACoAAAACAAAAAABCACoAAAACAAAAAABDACoAAAACAAAAAABEACoAAAADAAAAAAAiAAYAAAABAAAAAAAjAAYAAAACAAAAAAAkAAYAAAACAAAAAAAlAAYAAAACAAAAAAAmAAYAAAACAAAAAAAnAAYAAAACAAAAAAAoAAYAAAACAAAAAAApAAYAAAACAAAAAAAqAAYAAAADAAAAAAA=")
 tile_set = ExtResource("2_vaslk")
 
-[node name="HazardsLayer" type="TileMapLayer" parent="World" unique_id=1252519716]
+[node name="HazardsLayer" type="TileMapLayer" parent="World" unique_id=869807165]
 z_index = -1
 tile_map_data = PackedByteArray("AAAQABAAAAAAAAEAAAA2ABAAAAAAAAEAAAAQABEAAAAAAAEAAAA2ABEAAAAAAAEAAAAQABIAAAAAAAEAAAA2ABIAAAAAAAEAAAAQABMAAAAAAAEAAAA2ABMAAAAAAAEAAAAQABQAAAAAAAEAAAA2ABQAAAAAAAEAAAAQABUAAAAAAAEAAAA2ABUAAAAAAAEAAAAQABYAAAAAAAEAAAA2ABYAAAAAAAEAAAAQABcAAAAAAAEAAAA2ABcAAAAAAAEAAAAQABgAAAAAAAEAAAA2ABgAAAAAAAEAAAAQABkAAAAAAAEAAAA2ABkAAAAAAAEAAAAQABoAAAAAAAEAAAA2ABoAAAAAAAEAAAAQABsAAAAAAAEAAAA2ABsAAAAAAAEAAAAQABwAAAAAAAEAAAA2ABwAAAAAAAEAAAAQAB0AAAAAAAEAAAA2AB0AAAAAAAEAAAAQAB4AAAAAAAEAAAA2AB4AAAAAAAEAAAAQAB8AAAAAAAEAAAA2AB8AAAAAAAEAAAAQACAAAAAAAAEAAAA2ACAAAAAAAAEAAAAQACEAAAAAAAEAAAA2ACEAAAAAAAEAAAAQACIAAAAAAAEAAAA2ACIAAAAAAAEAAAAQACMAAAAAAAEAAAA2ACMAAAAAAAEAAAAcABIAAAAAAAEAAAAcACIAAAAAAAEAAAAeABIAAAAAAAEAAAAeACIAAAAAAAEAAAAsABIAAAAAAAEAAAAsACIAAAAAAAEAAAAuABIAAAAAAAEAAAAuACIAAAAAAAEAAAAlABAAAAAAAAEAAAAlACQAAAAAAAEAAAA=")
 tile_set = ExtResource("2_vaslk")
 
-[node name="CyberCab" type="CharacterBody2D" parent="World" unique_id=1223355803 instance=ExtResource("3_7dmyl")]
+[node name="LightsLayer" type="TileMapLayer" parent="World" unique_id=160348687]
+z_index = -1
+tile_map_data = PackedByteArray("AAAGACQAAAAAAAIAAAAGAAgAAAAAAAIAAAAlABYAAAAAAAIAAABCAAYAAAAAAAIAAABCACYAAAAAAAIAAAAmAAIAAAAAAAIAAAA=")
+tile_set = ExtResource("2_vaslk")
+
+[node name="CyberCab" type="CharacterBody2D" parent="World" unique_id=1132874032 instance=ExtResource("3_7dmyl")]
 collision_layer = 2
 collision_mask = 5
 motion_mode = 1

@@ -51,8 +51,12 @@ func _draw() -> void:
 	for hpos in data.get("hazards", []):
 		var hp: Vector2 = hpos * scale_v
 		draw_rect(Rect2(hp - Vector2(1.5, 2), Vector2(3, 4)), Color(1.0, 0.25, 0.35, 0.9))
+	for lpos in data.get("lights", []):
+		var lp: Vector2 = lpos * scale_v
+		draw_circle(lp, 2.0, Color(1.0, 0.95, 0.4, 0.95))
 	var cab: Vector2 = data.get("cab_pos", Vector2.ZERO) * scale_v
-	draw_circle(cab, 2.5, Color(0.2, 1.0, 0.6))
+	var cab_col := Color(1.0, 0.95, 0.4) if data.get("in_light", false) else Color(0.2, 1.0, 0.6)
+	draw_circle(cab, 2.5, cab_col)
 
 
 func _process(_delta: float) -> void:

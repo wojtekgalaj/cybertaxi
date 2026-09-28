@@ -1,32 +1,31 @@
 extends Node
-## Persistent run state: money, fuel, upgrades, level progression.
+## Persistent run state: money, batteries, upgrades, level progression.
 
 signal money_changed(amount: int)
-signal fuel_changed(current: float, maximum: float)
+signal battery_changed(current: float, maximum: float)
 signal level_changed(level: int)
 signal run_reset()
 
 const STORE_EVERY_N_LEVELS := 3
-const BASE_MAX_FUEL := 100.0
+const BASE_MAX_BATTERY := 100.0
 const BASE_FARE := 40
 
 var money: int = 0
 var level: int = 1
-var fuel: float = BASE_MAX_FUEL
-var max_fuel: float = BASE_MAX_FUEL
+var battery: float = BASE_MAX_BATTERY
+var max_battery: float = BASE_MAX_BATTERY
 var fares_completed_this_level: int = 0
 var fares_required_this_level: int = 3
 
-## Owned upgrade ids (from UpgradeDB).
 var owned_upgrades: Array[String] = []
 
-## Live cab stats (recomputed from upgrades).
-var thrust: float = 480.0
-var drag: float = 1.6 ## Base air drag; district air_friction multiplies this.
-var fuel_burn_rate: float = 8.0
-var fuel_idle_burn: float = 1.5
-var stability: float = 1.0 ## Higher = less bumpiness penalty.
-var tip_bonus: float = 0.0 ## Extra fare multiplier.
+var thrust: float = 520.0
+var drag: float = 1.2
+var battery_burn_rate: float = 8.0
+var battery_idle_burn: float = 1.5
+var battery_charge_mult: float = 1.0 ## From upgrades / debug.
+var stability: float = 1.0
+var tip_bonus: float = 0.0
 var max_speed: float = 240.0
 
 
@@ -39,12 +38,12 @@ func reset_run() -> void:
 	level = 1
 	owned_upgrades.clear()
 	_recompute_stats()
-	fuel = max_fuel
+	battery = max_battery
 	fares_completed_this_level = 0
 	fares_required_this_level = _fares_for_level(level)
 	run_reset.emit()
 	money_changed.emit(money)
-	fuel_changed.emit(fuel, max_fuel)
+	battery_changed.emit(battery, max_battery)
 	level_changed.emit(level)
 
 
@@ -53,11 +52,12 @@ func _fares_for_level(lvl: int) -> int:
 
 
 func _recompute_stats() -> void:
-	max_fuel = BASE_MAX_FUEL
-	thrust = 480.0
-	drag = 1.6
-	fuel_burn_rate = 8.0
-	fuel_idle_burn = 1.5
+	max_battery = BASE_MAX_BATTERY
+	thrust = 520.0
+	drag = 1.2
+	battery_burn_rate = 8.0
+	battery_idle_burn = 1.5
+	battery_charge_mult = 1.0
 	stability = 1.0
 	tip_bonus = 0.0
 	max_speed = 240.0
@@ -65,16 +65,17 @@ func _recompute_stats() -> void:
 		var up: Dictionary = UpgradeDB.get_upgrade(id)
 		if up.is_empty():
 			continue
-		max_fuel += float(up.get("max_fuel", 0.0))
+		max_battery += float(up.get("max_battery", up.get("max_fuel", 0.0)))
 		thrust += float(up.get("thrust", 0.0))
 		drag += float(up.get("drag", 0.0))
-		fuel_burn_rate += float(up.get("fuel_burn", 0.0))
-		fuel_idle_burn += float(up.get("fuel_idle", 0.0))
+		battery_burn_rate += float(up.get("battery_burn", up.get("fuel_burn", 0.0)))
+		battery_idle_burn += float(up.get("battery_idle", up.get("fuel_idle", 0.0)))
+		battery_charge_mult += float(up.get("battery_charge", 0.0))
 		stability += float(up.get("stability", 0.0))
 		tip_bonus += float(up.get("tip_bonus", 0.0))
 		max_speed += float(up.get("max_speed", 0.0))
-	fuel = mini(fuel, max_fuel)
-	fuel_changed.emit(fuel, max_fuel)
+	battery = mini(battery, max_battery)
+	battery_changed.emit(battery, max_battery)
 
 
 func add_money(amount: int) -> void:
@@ -90,21 +91,21 @@ func spend_money(amount: int) -> bool:
 	return true
 
 
-func set_fuel(value: float) -> void:
-	fuel = clampf(value, 0.0, max_fuel)
-	fuel_changed.emit(fuel, max_fuel)
+func set_battery(value: float) -> void:
+	battery = clampf(value, 0.0, max_battery)
+	battery_changed.emit(battery, max_battery)
 
 
-func consume_fuel(amount: float) -> void:
-	set_fuel(fuel - amount)
+func consume_battery(amount: float) -> void:
+	set_battery(battery - amount)
 
 
-func regain_fuel(amount: float) -> void:
-	set_fuel(fuel + amount)
+func charge_battery(amount: float) -> void:
+	set_battery(battery + amount * battery_charge_mult)
 
 
-func refill_fuel() -> void:
-	set_fuel(max_fuel)
+func refill_battery() -> void:
+	set_battery(max_battery)
 
 
 func own_upgrade(id: String) -> void:
@@ -130,17 +131,15 @@ func advance_level() -> void:
 	level += 1
 	fares_completed_this_level = 0
 	fares_required_this_level = _fares_for_level(level)
-	refill_fuel()
+	refill_battery()
 	level_changed.emit(level)
 
 
 func store_after_this_level() -> bool:
-	## Call before advance_level(): store opens after levels 3, 6, 9...
 	return level % STORE_EVERY_N_LEVELS == 0
 
 
 func should_visit_store() -> bool:
-	## Call after advance_level().
 	return level > 1 and (level - 1) % STORE_EVERY_N_LEVELS == 0
 
 

@@ -1,13 +1,13 @@
 extends CanvasLayer
-## F1 — live feel tweaks for GameState, dimension, and cab. Refuel included.
+## Q — live feel tweaks. Charge battery button for testing.
 
 var level: Node = null
 
 var _panel: PanelContainer
 var _list: VBoxContainer
 var _hint: Label
-var _sliders: Dictionary = {} ## id -> HSlider
-var _value_labels: Dictionary = {} ## id -> Label
+var _sliders: Dictionary = {}
+var _value_labels: Dictionary = {}
 var _syncing: bool = false
 
 
@@ -76,38 +76,35 @@ func _build_ui() -> void:
 	_list.add_theme_constant_override("separation", 4)
 	scroll.add_child(_list)
 
-	_section("Cab (GameState)")
-	_add_slider("thrust", "Thrust", 50.0, 900.0, 1.0)
+	_section("Quad / GameState")
+	_add_slider("thrust", "Motor force", 50.0, 900.0, 1.0)
 	_add_slider("drag", "Drag", 0.0, 6.0, 0.05)
 	_add_slider("max_speed", "Max speed", 60.0, 400.0, 1.0)
-	_add_slider("fuel_burn", "Fuel burn (thrust)", 0.0, 30.0, 0.1)
-	_add_slider("fuel_idle", "Fuel burn (idle)", 0.0, 10.0, 0.1)
-	_add_slider("max_fuel", "Max fuel", 20.0, 300.0, 1.0)
+	_add_slider("battery_burn", "Battery burn (thrust)", 0.0, 30.0, 0.1)
+	_add_slider("battery_idle", "Battery burn (idle)", 0.0, 10.0, 0.1)
+	_add_slider("max_battery", "Max battery", 20.0, 300.0, 1.0)
 	_add_slider("stability", "Stability", 0.2, 3.0, 0.05)
 
 	_section("Dimension")
 	_add_slider("gravity", "Gravity", 40.0, 450.0, 1.0)
 	_add_slider("air_friction", "Air friction", 0.05, 3.0, 0.01)
-	_add_slider("inertia", "Inertia", 0.05, 5.0, 0.05)
+	_add_slider("inertia", "Inertia", 0.4, 6.0, 0.05)
 
 	_section("Cab feel")
-	_add_slider("freefall_speed", "Freefall speed gate", 10.0, 150.0, 1.0)
-	_add_slider("freefall_regen", "Freefall fuel regen", 0.0, 60.0, 0.5)
 	_add_slider("soft_land", "Soft-land max speed", 40.0, 200.0, 1.0)
 
 	var btns := HBoxContainer.new()
 	btns.add_theme_constant_override("separation", 6)
 	outer.add_child(btns)
 
-	var refuel := Button.new()
-	refuel.text = "Refuel"
-	refuel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	refuel.pressed.connect(_on_refuel)
-	btns.add_child(refuel)
+	var charge := Button.new()
+	charge.text = "Fill battery"
+	charge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	charge.pressed.connect(_on_refuel)
+	btns.add_child(charge)
 
 	var pull := Button.new()
 	pull.text = "Reload"
-	pull.tooltip_text = "Pull current values from level / GameState"
 	pull.pressed.connect(_pull_from_sources)
 	btns.add_child(pull)
 
@@ -137,7 +134,6 @@ func _add_slider(id: String, caption: String, min_v: float, max_v: float, step: 
 	head.add_child(name_l)
 	head.add_child(val_l)
 	row.add_child(head)
-
 	var slider := HSlider.new()
 	slider.min_value = min_v
 	slider.max_value = max_v
@@ -147,7 +143,6 @@ func _add_slider(id: String, caption: String, min_v: float, max_v: float, step: 
 	slider.value_changed.connect(func(v: float): _on_slider(id, v))
 	row.add_child(slider)
 	_list.add_child(row)
-
 	_sliders[id] = slider
 	_value_labels[id] = val_l
 
@@ -175,20 +170,16 @@ func _pull_from_sources() -> void:
 	_set_slider("thrust", GameState.thrust)
 	_set_slider("drag", GameState.drag)
 	_set_slider("max_speed", GameState.max_speed)
-	_set_slider("fuel_burn", GameState.fuel_burn_rate)
-	_set_slider("fuel_idle", GameState.fuel_idle_burn)
-	_set_slider("max_fuel", GameState.max_fuel)
+	_set_slider("battery_burn", GameState.battery_burn_rate)
+	_set_slider("battery_idle", GameState.battery_idle_burn)
+	_set_slider("max_battery", GameState.max_battery)
 	_set_slider("stability", GameState.stability)
-
 	if level:
 		_set_slider("gravity", float(level.get("gravity")))
 		_set_slider("air_friction", float(level.get("air_friction")))
 		_set_slider("inertia", float(level.get("inertia")))
 	if level and level.get("cab"):
-		var cab: Node = level.cab
-		_set_slider("freefall_speed", float(cab.get("freefall_speed")))
-		_set_slider("freefall_regen", float(cab.get("freefall_regen")))
-		_set_slider("soft_land", float(cab.get("soft_land_speed")))
+		_set_slider("soft_land", float(level.cab.get("soft_land_speed")))
 
 
 func _on_slider(id: String, value: float) -> void:
@@ -202,23 +193,17 @@ func _on_slider(id: String, value: float) -> void:
 			GameState.drag = value
 		"max_speed":
 			GameState.max_speed = value
-		"fuel_burn":
-			GameState.fuel_burn_rate = value
-		"fuel_idle":
-			GameState.fuel_idle_burn = value
-		"max_fuel":
-			GameState.max_fuel = value
-			GameState.set_fuel(mini(GameState.fuel, GameState.max_fuel))
+		"battery_burn":
+			GameState.battery_burn_rate = value
+		"battery_idle":
+			GameState.battery_idle_burn = value
+		"max_battery":
+			GameState.max_battery = value
+			GameState.set_battery(mini(GameState.battery, GameState.max_battery))
 		"stability":
 			GameState.stability = value
 		"gravity", "air_friction", "inertia":
 			_push_dimension()
-		"freefall_speed":
-			if level and level.cab:
-				level.cab.freefall_speed = value
-		"freefall_regen":
-			if level and level.cab:
-				level.cab.freefall_regen = value
 		"soft_land":
 			if level and level.cab:
 				level.cab.soft_land_speed = value
@@ -233,14 +218,7 @@ func _push_dimension() -> void:
 	level.inertia = _sliders["inertia"].value
 	if level.has_method("_apply_dimension_to_cab"):
 		level._apply_dimension_to_cab()
-	elif level.cab and level.cab.has_method("apply_dimension"):
-		level.cab.apply_dimension({
-			"name": level.get("dimension_name"),
-			"gravity": level.gravity,
-			"friction": level.air_friction,
-			"inertia": level.inertia,
-		})
 
 
 func _on_refuel() -> void:
-	GameState.refill_fuel()
+	GameState.refill_battery()

@@ -5,30 +5,35 @@
 [ext_resource type="PackedScene" path="res://scenes/cyber_cab.tscn" id="3_eokde"]
 [ext_resource type="Script" path="res://scripts/player/cyber_cab.gd" id="4_ulyey"]
 
-[node name="Level" type="Node2D" unique_id=115402864]
+[node name="Level" type="Node2D" unique_id=1249438713]
 script = ExtResource("1_ds0u5")
 map_size = Vector2(1100, 720)
 building_count = 16
 
-[node name="World" type="Node2D" parent="." unique_id=938750875]
+[node name="World" type="Node2D" parent="." unique_id=1634866047]
 
-[node name="Decor" type="Node2D" parent="World" unique_id=242680437]
+[node name="Decor" type="Node2D" parent="World" unique_id=289647728]
 
-[node name="Platforms" type="Node2D" parent="World" unique_id=1158055361]
+[node name="Platforms" type="Node2D" parent="World" unique_id=662195201]
 
-[node name="Hazards" type="Node2D" parent="World" unique_id=1691987737]
+[node name="Hazards" type="Node2D" parent="World" unique_id=84752729]
 
-[node name="Passengers" type="Node2D" parent="World" unique_id=113795230]
+[node name="Lights" type="Node2D" parent="World" unique_id=452347626]
 
-[node name="Bounds" type="Node2D" parent="World" unique_id=326054903]
+[node name="Passengers" type="Node2D" parent="World" unique_id=1469957303]
 
-[node name="PlatformsLayer" type="TileMapLayer" parent="World" unique_id=419052945]
+[node name="Bounds" type="Node2D" parent="World" unique_id=625136057]
+
+[node name="PlatformsLayer" type="TileMapLayer" parent="World" unique_id=454035632]
 tile_set = ExtResource("2_4s5u3")
 
-[node name="HazardsLayer" type="TileMapLayer" parent="World" unique_id=204744648]
+[node name="HazardsLayer" type="TileMapLayer" parent="World" unique_id=471835971]
 tile_set = ExtResource("2_4s5u3")
 
-[node name="CyberCab" type="CharacterBody2D" parent="World" unique_id=1696747580 instance=ExtResource("3_eokde")]
+[node name="LightsLayer" type="TileMapLayer" parent="World" unique_id=1319747175]
+tile_set = ExtResource("2_4s5u3")
+
+[node name="CyberCab" type="CharacterBody2D" parent="World" unique_id=258589101 instance=ExtResource("3_eokde")]
 collision_layer = 2
 collision_mask = 5
 motion_mode = 1

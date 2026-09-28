@@ -1,5 +1,5 @@
 extends Node2D
-## District runner: tile-painted pads/hazards, random passenger jobs, dimension physics.
+## District runner: tile pads/hazards/lights, random jobs, quadcopter + batteries.
 
 signal fare_paid(amount: int, happiness: float)
 signal level_won()
@@ -12,12 +12,13 @@ const PassengerScene := preload("res://scenes/passenger.tscn")
 @export var building_count: int = 18
 @export var fill_sky: bool = true
 @export var scatter_buildings: bool = true
+@export var ambient_light: Color = Color(0.32, 0.36, 0.48, 1.0) ## Dim, but cab/world still readable.
 
 @export_group("Dimension")
 @export var dimension_name: String = "Prime Strip"
-@export var gravity: float = 180.0 ## Downward pull this dimension.
-@export var air_friction: float = 1.0 ## Multiplier on cab drag. Lower = icy / slides forever.
-@export var inertia: float = 2.6 ## Cab mass feel. Higher = harder to vector.
+@export var gravity: float = 180.0
+@export var air_friction: float = 1.0
+@export var inertia: float = 3.4 ## Higher = heavier quad.
 
 @onready var world: Node2D = $World
 @onready var platforms_root: Node2D = $World/Platforms
@@ -28,29 +29,49 @@ const PassengerScene := preload("res://scenes/passenger.tscn")
 @onready var camera: Camera2D = $World/CyberCab/Camera2D
 @onready var bounds: Node2D = $World/Bounds
 
+var lights_root: Node2D = null
 var platforms_layer: TileMapLayer = null
 var hazards_layer: TileMapLayer = null
+var lights_layer: TileMapLayer = null
 
 var platforms: Array[Node] = []
 var hazards: Array[Node] = []
+var lights: Array[Node] = []
 var active_destination: Node = null
 var rng := RandomNumberGenerator.new()
 var _lost: bool = false
 var _won: bool = false
-var _fuel_dead_timer: float = 0.0
+var _battery_dead_timer: float = 0.0
+var _canvas_modulate: CanvasModulate = null
 
 
 func _ready() -> void:
 	rng.randomize()
 	platforms_layer = world.get_node_or_null("PlatformsLayer") as TileMapLayer
 	hazards_layer = world.get_node_or_null("HazardsLayer") as TileMapLayer
+	lights_layer = world.get_node_or_null("LightsLayer") as TileMapLayer
+	lights_root = world.get_node_or_null("Lights") as Node2D
+	if lights_root == null:
+		lights_root = Node2D.new()
+		lights_root.name = "Lights"
+		world.add_child(lights_root)
+	_ensure_ambient()
 	_apply_dimension_to_cab()
 	_build_level()
 	cab.landed_on_platform.connect(_on_cab_landed)
 	status_message.emit(
-		"%s — g %.0f · friction %.2f · inertia %.1f. Dive to refuel."
-		% [dimension_name, gravity, air_friction, inertia]
+		"%s — seek light to charge. g %.0f · inertia %.1f"
+		% [dimension_name, gravity, inertia]
 	)
+
+
+func _ensure_ambient() -> void:
+	_canvas_modulate = world.get_node_or_null("Ambient") as CanvasModulate
+	if _canvas_modulate == null:
+		_canvas_modulate = CanvasModulate.new()
+		_canvas_modulate.name = "Ambient"
+		world.add_child(_canvas_modulate)
+	_canvas_modulate.color = ambient_light
 
 
 func _apply_dimension_to_cab() -> void:
@@ -70,6 +91,7 @@ func _build_level() -> void:
 		c.queue_free()
 	platforms.clear()
 	hazards.clear()
+	lights.clear()
 
 	if fill_sky or scatter_buildings:
 		_spawn_decor()
@@ -80,10 +102,15 @@ func _build_level() -> void:
 		push_error("%s: PlatformsLayer has no tiles. Paint at least two pads." % name)
 	else:
 		var built: Dictionary = TileLevelBuilder.build(
-			platforms_layer, hazards_layer, platforms_root, hazards_root
+			platforms_layer, hazards_layer, lights_layer,
+			platforms_root, hazards_root, lights_root
 		)
 		platforms.assign(built.get("platforms", []))
 		hazards.assign(built.get("hazards", []))
+		lights.assign(built.get("lights", []))
+
+	if lights_layer:
+		lights_layer.visible = false ## Runtime uses LightSource nodes.
 
 	_wire_hazards()
 	_place_cab_on_start()
@@ -253,12 +280,12 @@ func _clear_destination_highlight() -> void:
 func _process(delta: float) -> void:
 	if _lost or _won:
 		return
-	if GameState.fuel <= 0.0 and not cab.grounded:
-		_fuel_dead_timer += delta
-		if _fuel_dead_timer > 1.6:
-			_fail("Out of fuel — free fall")
+	if GameState.battery <= 0.0 and not cab.grounded:
+		_battery_dead_timer += delta
+		if _battery_dead_timer > 1.6:
+			_fail("Batteries dead — free fall")
 	else:
-		_fuel_dead_timer = 0.0
+		_battery_dead_timer = 0.0
 
 
 func check_fail_conditions() -> void:
@@ -281,12 +308,24 @@ func _draw_bounds_visual() -> void:
 
 func _add_wall(rect: Rect2) -> void:
 	var body := StaticBody2D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
 	var shape := CollisionShape2D.new()
 	var rect_shape := RectangleShape2D.new()
 	rect_shape.size = rect.size
 	shape.shape = rect_shape
 	body.position = rect.position + rect.size * 0.5
 	body.add_child(shape)
+	## Occlude lamp cones at map edges.
+	var occ := LightOccluder2D.new()
+	var poly := OccluderPolygon2D.new()
+	var hw := rect.size.x * 0.5
+	var hh := rect.size.y * 0.5
+	poly.polygon = PackedVector2Array([
+		Vector2(-hw, -hh), Vector2(hw, -hh), Vector2(hw, hh), Vector2(-hw, hh)
+	])
+	occ.occluder = poly
+	body.add_child(occ)
 	bounds.add_child(body)
 
 
@@ -296,5 +335,7 @@ func get_minimap_data() -> Dictionary:
 		"cab_pos": cab.global_position,
 		"platforms": platforms.map(func(p): return {"pos": p.global_position, "id": p.platform_id, "dest": p == active_destination}),
 		"hazards": hazards.map(func(h): return h.global_position),
+		"lights": lights.map(func(l): return l.global_position),
 		"passengers": passengers_root.get_children().map(func(pax): return pax.global_position if pax.waiting else null),
+		"in_light": cab.in_light if cab else false,
 	}

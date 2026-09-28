@@ -5,16 +5,16 @@ const UPGRADES: Array[Dictionary] = [
 	{
 		"id": "efficient_cells",
 		"name": "Efficient Cells",
-		"desc": "Fuel burns slower while thrusting.",
+		"desc": "Batteries drain slower while thrusting.",
 		"cost": 80,
-		"fuel_burn": -2.0,
+		"battery_burn": -2.0,
 	},
 	{
 		"id": "big_tank",
-		"name": "Big Tank",
-		"desc": "+40 max fuel capacity.",
+		"name": "Big Cells",
+		"desc": "+40 max battery capacity.",
 		"cost": 100,
-		"max_fuel": 40.0,
+		"max_battery": 40.0,
 	},
 	{
 		"id": "gyro_stabilizer",
@@ -26,7 +26,7 @@ const UPGRADES: Array[Dictionary] = [
 	{
 		"id": "turbo_props",
 		"name": "Turbo Props",
-		"desc": "Stronger thrust and higher top speed.",
+		"desc": "Stronger motors and higher top speed.",
 		"cost": 140,
 		"thrust": 90.0,
 		"max_speed": 40.0,
@@ -49,9 +49,16 @@ const UPGRADES: Array[Dictionary] = [
 	{
 		"id": "idle_sip",
 		"name": "Idle Sip",
-		"desc": "Hovering costs less fuel.",
+		"desc": "Hovering costs less battery.",
 		"cost": 90,
-		"fuel_idle": -0.8,
+		"battery_idle": -0.8,
+	},
+	{
+		"id": "solar_mesh",
+		"name": "Solar Mesh",
+		"desc": "Charge faster in lamp cones.",
+		"cost": 110,
+		"battery_charge": 0.35,
 	},
 ]
 

@@ -1,5 +1,5 @@
 extends CanvasLayer
-## In-run HUD: fuel, money, fares, status, minimap.
+## In-run HUD: batteries, money, fares, status, minimap.
 
 @onready var fuel_bar: ProgressBar = $Root/FuelBar
 @onready var money_label: Label = $Root/MoneyLabel
@@ -11,19 +11,22 @@ extends CanvasLayer
 @onready var overlay: ColorRect = $Root/Overlay
 @onready var overlay_label: Label = $Root/Overlay/OverlayLabel
 @onready var overlay_btn: Button = $Root/Overlay/OverlayButton
+@onready var fuel_caption: Label = $Root/FuelCaption
 
 var level: Node = null
-var _overlay_mode: String = "" ## "win" | "lose"
+var _overlay_mode: String = ""
 
 
 func _ready() -> void:
 	overlay.visible = false
+	if fuel_caption:
+		fuel_caption.text = "BATTERY"
 	GameState.money_changed.connect(_on_money)
-	GameState.fuel_changed.connect(_on_fuel)
+	GameState.battery_changed.connect(_on_battery)
 	GameState.level_changed.connect(_on_level)
 	overlay_btn.pressed.connect(_on_overlay_btn)
 	_on_money(GameState.money)
-	_on_fuel(GameState.fuel, GameState.max_fuel)
+	_on_battery(GameState.battery, GameState.max_battery)
 	_on_level(GameState.level)
 	_refresh_fares()
 	happiness_bar.visible = false
@@ -43,7 +46,6 @@ func _process(_delta: float) -> void:
 	_refresh_fares()
 	if level and level.cab and level.cab.has_passenger():
 		happiness_bar.visible = true
-		## Live estimate of happiness from bump + time.
 		var bump: float = level.cab.bump_accumulator
 		var t: float = level.cab.ride_time
 		var time_score := clampf(1.2 - (t / 45.0), 0.0, 1.0)
@@ -51,6 +53,13 @@ func _process(_delta: float) -> void:
 		happiness_bar.value = (time_score * 0.55 + smooth_score * 0.45) * 100.0
 	else:
 		happiness_bar.visible = false
+	if level and level.cab:
+		if level.cab.in_light:
+			fuel_bar.modulate = Color(1.0, 0.95, 0.45)
+		elif GameState.battery / maxf(1.0, GameState.max_battery) < 0.25:
+			fuel_bar.modulate = Color(1.0, 0.4, 0.4)
+		else:
+			fuel_bar.modulate = Color(0.3, 1.0, 0.7)
 	if level and level.has_method("check_fail_conditions"):
 		level.check_fail_conditions()
 
@@ -59,13 +68,9 @@ func _on_money(amount: int) -> void:
 	money_label.text = "$%d" % amount
 
 
-func _on_fuel(current: float, maximum: float) -> void:
+func _on_battery(current: float, maximum: float) -> void:
 	fuel_bar.max_value = maximum
 	fuel_bar.value = current
-	if current / maximum < 0.25:
-		fuel_bar.modulate = Color(1.0, 0.4, 0.4)
-	else:
-		fuel_bar.modulate = Color(0.3, 1.0, 0.7)
 
 
 func _on_level(lvl: int) -> void:
@@ -106,7 +111,6 @@ func _on_overlay_btn() -> void:
 		GameState.reset_run()
 		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 		return
-	## Win
 	GameState.advance_level()
 	if GameState.should_visit_store():
 		get_tree().change_scene_to_file("res://scenes/store.tscn")

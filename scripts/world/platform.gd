@@ -45,6 +45,23 @@ func _apply_tile_composition() -> void:
 		label.offset_right = 12
 		label.position = Vector2(-12, -30)
 	_ensure_highlight(width_px)
+	_ensure_light_occluder(width_px)
+
+
+func _ensure_light_occluder(width_px: float) -> void:
+	## Full pad body blocks light cones / PointLight2D shadows.
+	var existing := get_node_or_null("LightOccluder2D")
+	if existing:
+		existing.queue_free()
+	var occ := LightOccluder2D.new()
+	occ.name = "LightOccluder2D"
+	var poly := OccluderPolygon2D.new()
+	var hw := width_px * 0.5
+	poly.polygon = PackedVector2Array([
+		Vector2(-hw, -8), Vector2(hw, -8), Vector2(hw, 8), Vector2(-hw, 8)
+	])
+	occ.occluder = poly
+	add_child(occ)
 
 
 func _ensure_highlight(width_px: float) -> void:

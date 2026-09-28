@@ -28,6 +28,7 @@ func _init() -> void:
 		Vector2i(1, 1): "start",
 		Vector2i(2, 1): "platform",
 		Vector2i(3, 1): "hazard",
+		Vector2i(0, 2): "light",
 	}
 	for coords in roles.keys():
 		src.create_tile(coords)
