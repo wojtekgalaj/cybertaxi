@@ -6,7 +6,7 @@ signal fuel_changed(current: float, maximum: float)
 signal level_changed(level: int)
 signal run_reset()
 
-const STORE_EVERY_N_LEVELS := 3
+const STORE_EVERY_N_LEVELS := 1
 const BASE_MAX_FUEL := 100.0
 const BASE_FARE := 40
 
@@ -21,13 +21,13 @@ var fares_required_this_level: int = 3
 var owned_upgrades: Array[String] = []
 
 ## Live cab stats (recomputed from upgrades).
-var thrust: float = 420.0
-var drag: float = 2.8
-var fuel_burn_rate: float = 8.0
-var fuel_idle_burn: float = 1.5
-var stability: float = 1.0 ## Higher = less bumpiness penalty.
-var tip_bonus: float = 0.0 ## Extra fare multiplier.
-var max_speed: float = 220.0
+var thrust: float 
+var drag: float 
+var fuel_burn_rate: float 
+var fuel_idle_burn: float 
+var stability: float 
+var tip_bonus: float 
+var max_speed: float 
 
 
 func _ready() -> void:
@@ -57,22 +57,22 @@ func _recompute_stats() -> void:
 	thrust = 420.0
 	drag = 2.8
 	fuel_burn_rate = 8.0
-	fuel_idle_burn = 1.5
+	fuel_idle_burn = 0.5
 	stability = 1.0
 	tip_bonus = 0.0
 	max_speed = 220.0
 	for id in owned_upgrades:
-		var up: Dictionary = UpgradeDB.get_upgrade(id)
-		if up.is_empty():
+		var upgrade: Dictionary = UpgradeDB.get_upgrade(id)
+		if upgrade.is_empty():
 			continue
-		max_fuel += float(up.get("max_fuel", 0.0))
-		thrust += float(up.get("thrust", 0.0))
-		drag += float(up.get("drag", 0.0))
-		fuel_burn_rate += float(up.get("fuel_burn", 0.0))
-		fuel_idle_burn += float(up.get("fuel_idle", 0.0))
-		stability += float(up.get("stability", 0.0))
-		tip_bonus += float(up.get("tip_bonus", 0.0))
-		max_speed += float(up.get("max_speed", 0.0))
+		max_fuel += float(upgrade.get("max_fuel", 0.0))
+		thrust += float(upgrade.get("thrust", 0.0))
+		drag += float(upgrade.get("drag", 0.0))
+		fuel_burn_rate += float(upgrade.get("fuel_burn", 0.0))
+		fuel_idle_burn += float(upgrade.get("fuel_idle", 0.0))
+		stability += float(upgrade.get("stability", 0.0))
+		tip_bonus += float(upgrade.get("tip_bonus", 0.0))
+		max_speed += float(upgrade.get("max_speed", 0.0))
 	fuel = mini(fuel, max_fuel)
 	fuel_changed.emit(fuel, max_fuel)
 
