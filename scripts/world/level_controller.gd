@@ -1,6 +1,5 @@
 extends Node2D
-## Fare loop + layout. Prefer TileMapLayer painting (PlatformsLayer / HazardsLayer).
-## Legacy: hand-placed Platform/Hazard instances, or procedural spawn.
+## Spawns platforms/passengers, handles pickup/dropoff, win/lose, next level.
 
 signal fare_paid(amount: int, happiness: float)
 signal level_won()
@@ -13,11 +12,6 @@ const PlatformScene := preload("res://scenes/platform.tscn")
 @export var map_size: Vector2 = Vector2(1200, 800)
 @export var platform_count: int = 5
 @export var building_count: int = 18
-@export var hand_authored: bool = false ## Legacy instance placement (ignored if tile layers present).
-@export var platform_count: int = 5
-@export var building_count: int = 18
-@export var fill_sky: bool = true
-@export var scatter_buildings: bool = true
 
 @onready var world: Node2D = $World
 @onready var platforms_root: Node2D = $World/Platforms
@@ -26,9 +20,6 @@ const PlatformScene := preload("res://scenes/platform.tscn")
 @onready var cab: CharacterBody2D = $World/CyberCab
 @onready var camera: Camera2D = $World/CyberCab/Camera2D
 @onready var bounds: Node2D = $World/Bounds
-
-var platforms_layer: TileMapLayer = null
-var hazards_layer: TileMapLayer = null
 
 var platforms: Array[Node] = []
 var active_destination: Node = null
@@ -40,19 +31,9 @@ var _fuel_dead_timer: float = 0.0
 
 func _ready() -> void:
 	rng.randomize()
-	platforms_layer = world.get_node_or_null("PlatformsLayer") as TileMapLayer
-	hazards_layer = world.get_node_or_null("HazardsLayer") as TileMapLayer
 	_build_level()
 	cab.landed_on_platform.connect(_on_cab_landed)
 	status_message.emit("Pick up riders. Land with SPACE/E. Smooth & quick!")
-
-
-func uses_tilemap() -> bool:
-	return (
-		platforms_layer != null
-		and platforms_layer.tile_set != null
-		and platforms_layer.get_used_cells().size() > 0
-	)
 
 
 func _build_level() -> void:
@@ -64,54 +45,12 @@ func _build_level() -> void:
 	for c in decor_root.get_children():
 		c.queue_free()
 	platforms.clear()
-	hazards.clear()
 
-	if fill_sky or scatter_buildings:
-		_spawn_decor()
-
-	if uses_tilemap():
-		var built: Dictionary = TileLevelBuilder.build(
-			platforms_layer, hazards_layer, platforms_root, hazards_root
-		)
-		platforms.assign(built.get("platforms", []))
-		hazards.assign(built.get("hazards", []))
-	elif hand_authored:
-		_collect_hand_layout()
-	else:
-		for c in platforms_root.get_children():
-			c.queue_free()
-		for c in hazards_root.get_children():
-			c.queue_free()
-		_spawn_platforms()
-
-	_wire_hazards()
-	_place_cab_on_start()
+	_spawn_decor()
+	_spawn_platforms()
+	_place_cab_on_first()
 	_spawn_waiting_passengers()
 	_draw_bounds_visual()
-
-
-func _collect_hand_layout() -> void:
-	platforms.clear()
-	hazards.clear()
-	for p in platforms_root.get_children():
-		platforms.append(p)
-	for h in hazards_root.get_children():
-		hazards.append(h)
-
-
-func _wire_hazards() -> void:
-	for h in hazards:
-		if h.has_signal("struck") and not h.struck.is_connected(_on_hazard_struck):
-			h.struck.connect(_on_hazard_struck)
-
-
-func _on_hazard_struck(hazard: Node) -> void:
-	if _lost or _won:
-		return
-	var reason := "Hit a no-fly pylon"
-	if hazard.has_meta("underside_of"):
-		reason = "Struck underside of pad %s" % str(hazard.get_meta("underside_of"))
-	_fail(reason)
 
 
 func _spawn_decor() -> void:

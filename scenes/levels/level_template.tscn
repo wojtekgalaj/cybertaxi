@@ -1,35 +1,22 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://1kiwthgqc3py"]
 
-[ext_resource type="Script" path="res://scripts/world/level_controller.gd" id="1_ds0u5"]
-[ext_resource type="TileSet" path="res://assets/tiles/district_tileset.tres" id="2_4s5u3"]
-[ext_resource type="PackedScene" path="res://scenes/cyber_cab.tscn" id="3_eokde"]
-[ext_resource type="Script" path="res://scripts/player/cyber_cab.gd" id="4_ulyey"]
+[ext_resource type="Script" uid="uid://d3l7ksmu4ry0m" path="res://scripts/world/level_controller.gd" id="1_lvl"]
+[ext_resource type="PackedScene" uid="uid://bcabcyber001" path="res://scenes/cyber_cab.tscn" id="2_cab"]
 
-[node name="Level" type="Node2D" unique_id=115402864]
-script = ExtResource("1_ds0u5")
+[node name="Level" type="Node2D" unique_id=822949044]
+script = ExtResource("1_lvl")
 map_size = Vector2(1100, 720)
-building_count = 16
+building_count = 21
 
-[node name="World" type="Node2D" parent="." unique_id=938750875]
+[node name="World" type="Node2D" parent="." unique_id=1328986134]
 
-[node name="Decor" type="Node2D" parent="World" unique_id=242680437]
+[node name="Decor" type="Node2D" parent="World" unique_id=1597863171]
 
-[node name="Platforms" type="Node2D" parent="World" unique_id=1158055361]
+[node name="Platforms" type="Node2D" parent="World" unique_id=339937664]
 
-[node name="Hazards" type="Node2D" parent="World" unique_id=1691987737]
+[node name="Passengers" type="Node2D" parent="World" unique_id=719958781]
 
-[node name="Passengers" type="Node2D" parent="World" unique_id=113795230]
+[node name="Bounds" type="Node2D" parent="World" unique_id=1361083228]
 
-[node name="Bounds" type="Node2D" parent="World" unique_id=326054903]
-
-[node name="PlatformsLayer" type="TileMapLayer" parent="World" unique_id=419052945]
-tile_set = ExtResource("2_4s5u3")
-
-[node name="HazardsLayer" type="TileMapLayer" parent="World" unique_id=204744648]
-tile_set = ExtResource("2_4s5u3")
-
-[node name="CyberCab" type="CharacterBody2D" parent="World" unique_id=1696747580 instance=ExtResource("3_eokde")]
-collision_layer = 2
-collision_mask = 5
-motion_mode = 1
-script = ExtResource("4_ulyey")
+[node name="CyberCab" parent="World" unique_id=1848484360 instance=ExtResource("2_cab")]
+position = Vector2(200, 200)
