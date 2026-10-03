@@ -27,6 +27,7 @@ var _takeoff_grace: float = 0.0
 
 
 func _ready() -> void:
+	add_to_group("player")
 	tex_idle = preload("res://assets/sprites/cab.png")
 	tex_bank_l = preload("res://assets/sprites/cab_bank_l.png")
 	tex_bank_r = preload("res://assets/sprites/cab_bank_r.png")
@@ -97,13 +98,13 @@ func _physics_process(delta: float) -> void:
 func _check_landing() -> void:
 	if grounded or _takeoff_grace > 0.0:
 		return
-	## Soft landing: slow & near a platform area.
-	if velocity.length() > 90.0:
+	## Soft landing: descending slowly onto the top face only.
+	if velocity.length() > 90.0 or velocity.y < 0.0:
 		return
 	for i in get_slide_collision_count():
 		var col := get_slide_collision(i)
 		var collider := col.get_collider()
-		if collider and collider.is_in_group("platforms"):
+		if collider and collider.is_in_group("platforms") and col.get_normal().y < -0.5:
 			_land(collider)
 			return
 	## Also allow proximity land via ray / overlap.
@@ -117,7 +118,10 @@ func _land(platform: Node) -> void:
 	grounded = true
 	current_platform = platform
 	velocity = Vector2.ZERO
-	global_position.y = platform.global_position.y - 14.0
+	if platform.has_method("get_cab_rest_global"):
+		global_position.y = platform.get_cab_rest_global().y
+	else:
+		global_position.y = platform.global_position.y - 14.0
 	GameState.refill_fuel()
 	landed_on_platform.emit(platform)
 

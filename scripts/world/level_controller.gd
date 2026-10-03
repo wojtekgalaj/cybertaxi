@@ -1,5 +1,11 @@
 extends Node2D
-## Spawns platforms/passengers, handles pickup/dropoff, win/lose, next level.
+## Hand-painted district. Paint World/Tiles with district_tileset.tres.
+## Atlas top row: pad left, middle, right, single.
+## Atlas bottom row: spikes, start pad, wall, pylon.
+## A horizontal run of pad tiles is one landing pad. The cyan top is safe.
+## The red belly, spikes, and pylons crash the cab. Walls are solid.
+## The gold start tile marks where the cab spawns.
+## Add finished scenes to data/level_catalog.gd.
 
 signal fare_paid(amount: int, happiness: float)
 signal level_won()
@@ -7,21 +13,25 @@ signal level_lost(reason: String)
 signal status_message(text: String)
 
 const PassengerScene := preload("res://scenes/passenger.tscn")
-const PlatformScene := preload("res://scenes/platform.tscn")
+const TileBuilder := preload("res://scripts/world/tile_level_builder.gd")
 
-@export var map_size: Vector2 = Vector2(1200, 800)
-@export var platform_count: int = 5
-@export var building_count: int = 18
+@export var map_size: Vector2 = Vector2(640, 448)
+@export var fill_sky: bool = true
 
 @onready var world: Node2D = $World
 @onready var platforms_root: Node2D = $World/Platforms
+@onready var hazards_root: Node2D = $World/Hazards
+@onready var walls_root: Node2D = $World/Walls
 @onready var decor_root: Node2D = $World/Decor
 @onready var passengers_root: Node2D = $World/Passengers
 @onready var cab: CharacterBody2D = $World/CyberCab
 @onready var camera: Camera2D = $World/CyberCab/Camera2D
 @onready var bounds: Node2D = $World/Bounds
+@onready var tiles: TileMapLayer = $World/Tiles
 
 var platforms: Array[Node] = []
+var hazards: Array[Node] = []
+var walls: Array[Node] = []
 var active_destination: Node = null
 var rng := RandomNumberGenerator.new()
 var _lost: bool = false
@@ -33,30 +43,65 @@ func _ready() -> void:
 	rng.randomize()
 	_build_level()
 	cab.landed_on_platform.connect(_on_cab_landed)
-	status_message.emit("Pick up riders. Land with SPACE/E. Smooth & quick!")
+	call_deferred("_announce")
+
+
+func _announce() -> void:
+	status_message.emit("Land on the cyan tops. Red bellies and hazards crash. SPACE/E on a pad.")
 
 
 func _build_level() -> void:
-	## Clear
-	for c in platforms_root.get_children():
-		c.queue_free()
 	for c in passengers_root.get_children():
 		c.queue_free()
 	for c in decor_root.get_children():
 		c.queue_free()
 	platforms.clear()
+	hazards.clear()
+	walls.clear()
 
-	_spawn_decor()
-	_spawn_platforms()
-	_place_cab_on_first()
+	if fill_sky:
+		_spawn_sky()
+
+	if tiles == null or tiles.tile_set == null:
+		push_error("%s is missing World/Tiles. Assign district_tileset.tres and paint the district." % name)
+		status_message.emit("No tileset on this district.")
+	elif tiles.get_used_cells().is_empty():
+		push_error("%s: paint platforms, walls, and hazards on World/Tiles." % name)
+		status_message.emit("Empty district — paint World/Tiles.")
+	else:
+		## Keep the cab out of newly created areas until it is docked.
+		cab.global_position = Vector2(-10000, -10000)
+		var built: Dictionary = TileBuilder.build(tiles, platforms_root, hazards_root, walls_root)
+		for p in built.get("platforms", []):
+			platforms.append(p)
+		for h in built.get("hazards", []):
+			hazards.append(h)
+		for w in built.get("walls", []):
+			walls.append(w)
+
+	_wire_hazards()
+	_place_cab_on_start()
 	_spawn_waiting_passengers()
 	_draw_bounds_visual()
 
 
-func _spawn_decor() -> void:
+func _wire_hazards() -> void:
+	for h in hazards:
+		if h.has_signal("struck") and not h.struck.is_connected(_on_hazard_struck):
+			h.struck.connect(_on_hazard_struck)
+
+
+func _on_hazard_struck(hazard: Node) -> void:
+	if _lost or _won:
+		return
+	var reason := "Hit a hazard"
+	if hazard.has_meta("underside_of"):
+		reason = "Crashed into the underside of pad %s" % str(hazard.get_meta("underside_of"))
+	_fail(reason)
+
+
+func _spawn_sky() -> void:
 	var sky_tex: Texture2D = preload("res://assets/sprites/sky.png")
-	var bldg_tex: Texture2D = preload("res://assets/sprites/building.png")
-	## Tiled night sky
 	var tile := 64
 	var cols := int(map_size.x / tile) + 2
 	var rows := int(map_size.y / tile) + 2
@@ -67,73 +112,32 @@ func _spawn_decor() -> void:
 			s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			s.centered = false
 			s.position = Vector2(x * tile - 32, y * tile - 32)
-			s.modulate = Color(1, 1, 1, 1)
 			s.z_index = -20
 			decor_root.add_child(s)
-	for i in building_count:
-		var s := Sprite2D.new()
-		s.texture = bldg_tex
-		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		s.centered = true
-		s.position = Vector2(
-			rng.randf_range(40, map_size.x - 40),
-			rng.randf_range(80, map_size.y - 40)
-		)
-		s.z_index = -10
-		s.modulate = Color(1, 1, 1, 0.85)
-		decor_root.add_child(s)
 
 
-func _spawn_platforms() -> void:
-	var ids := ["A", "B", "C", "D", "E", "F", "G", "H"]
-	var count := mini(platform_count + GameState.level / 2, ids.size())
-	var margin := 80.0
-	var positions: Array[Vector2] = []
-	## Guaranteed spread: place on a loose grid then jitter.
-	var cols := ceili(sqrt(float(count)))
-	var rows := ceili(float(count) / float(cols))
-	var cell_w := (map_size.x - margin * 2.0) / maxf(cols, 1)
-	var cell_h := (map_size.y - margin * 2.0) / maxf(rows, 1)
-	var idx := 0
-	for r in rows:
-		for c in cols:
-			if idx >= count:
-				break
-			var base := Vector2(
-				margin + cell_w * (c + 0.5),
-				margin + cell_h * (r + 0.5)
-			)
-			base += Vector2(rng.randf_range(-cell_w * 0.25, cell_w * 0.25),
-				rng.randf_range(-cell_h * 0.25, cell_h * 0.25))
-			positions.append(base)
-			idx += 1
-
-	for i in positions.size():
-		var p: Node = PlatformScene.instantiate()
-		p.platform_id = ids[i]
-		p.label_text = ids[i]
-		platforms_root.add_child(p)
-		p.global_position = positions[i]
-		platforms.append(p)
-
-
-func _place_cab_on_first() -> void:
+func _place_cab_on_start() -> void:
 	if platforms.is_empty():
 		return
 	var home: Node = platforms[0]
-	cab.global_position = home.get_dock_global() + Vector2(0, -4)
+	for p in platforms:
+		if p.get("is_start"):
+			home = p
+			break
+	cab.global_position = home.get_cab_rest_global()
 	cab.grounded = true
 	cab.current_platform = home
 	cab.velocity = Vector2.ZERO
 
 
 func _spawn_waiting_passengers() -> void:
-	## Keep enough jobs in play for the level quota.
 	var needed := GameState.fares_required_this_level - GameState.fares_completed_this_level
-	var waiting := passengers_root.get_child_count()
+	var waiting := 0
+	for pax in passengers_root.get_children():
+		if is_instance_valid(pax) and not pax.is_queued_for_deletion() and pax.waiting:
+			waiting += 1
 	var to_spawn := mini(needed - waiting, platforms.size() - 1)
 	to_spawn = maxi(to_spawn, 0)
-	## Also keep at least 2 waiting early for feel.
 	if waiting + to_spawn < mini(2, needed):
 		to_spawn = mini(2, needed) - waiting
 	for _i in to_spawn:
@@ -145,6 +149,8 @@ func _spawn_one_passenger() -> void:
 		return
 	var occupied: Dictionary = {}
 	for pax in passengers_root.get_children():
+		if not is_instance_valid(pax) or pax.is_queued_for_deletion():
+			continue
 		if pax.origin_platform:
 			occupied[pax.origin_platform] = true
 	var origins: Array[Node] = []
@@ -167,7 +173,6 @@ func _spawn_one_passenger() -> void:
 func _on_cab_landed(platform: Node) -> void:
 	if _lost or _won:
 		return
-	## Dropoff first
 	if cab.has_passenger():
 		var dest: Node = cab.passenger.get_destination()
 		if platform == dest:
@@ -175,7 +180,6 @@ func _on_cab_landed(platform: Node) -> void:
 		else:
 			status_message.emit("Wrong pad — need %s" % str(dest.label_text))
 		return
-	## Pickup
 	for pax in passengers_root.get_children():
 		if pax.waiting and pax.origin_platform == platform:
 			_pickup(pax)
@@ -241,17 +245,17 @@ func _process(delta: float) -> void:
 
 
 func check_fail_conditions() -> void:
-	## Kept for HUD hook; main fail handled in _process.
 	pass
 
 
 func _fail(reason: String) -> void:
+	if _lost or _won:
+		return
 	_lost = true
 	level_lost.emit(reason)
 
 
 func _draw_bounds_visual() -> void:
-	## Invisible walls via StaticBody segments.
 	for c in bounds.get_children():
 		c.queue_free()
 	_add_wall(Rect2(0, -20, map_size.x, 20))
@@ -262,6 +266,8 @@ func _draw_bounds_visual() -> void:
 
 func _add_wall(rect: Rect2) -> void:
 	var body := StaticBody2D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
 	var shape := CollisionShape2D.new()
 	var rect_shape := RectangleShape2D.new()
 	rect_shape.size = rect.size
@@ -272,9 +278,20 @@ func _add_wall(rect: Rect2) -> void:
 
 
 func get_minimap_data() -> Dictionary:
+	var hazard_positions: Array = []
+	for h in hazards:
+		if h.has_meta("underside_of"):
+			continue
+		hazard_positions.append(h.global_position)
+	var wall_rects: Array = []
+	for w in walls:
+		if w.has_meta("world_rect"):
+			wall_rects.append(w.get_meta("world_rect"))
 	return {
 		"map_size": map_size,
 		"cab_pos": cab.global_position,
 		"platforms": platforms.map(func(p): return {"pos": p.global_position, "id": p.platform_id, "dest": p == active_destination}),
+		"hazards": hazard_positions,
+		"walls": wall_rects,
 		"passengers": passengers_root.get_children().map(func(pax): return pax.global_position if pax.waiting else null),
 	}

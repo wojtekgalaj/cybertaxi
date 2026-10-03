@@ -25,6 +25,14 @@ func _draw() -> void:
 		return
 	var scale_v := Vector2(size.x / map_size.x, size.y / map_size.y)
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.012)
+	for wall in data.get("walls", []):
+		var rect: Rect2 = wall
+		var origin := Vector2(rect.position.x * scale_v.x, rect.position.y * scale_v.y)
+		var extent := Vector2(rect.size.x * scale_v.x, rect.size.y * scale_v.y)
+		draw_rect(Rect2(origin, extent), Color(0.28, 0.4, 0.58, 0.95))
+	for hpos in data.get("hazards", []):
+		var hp: Vector2 = hpos * scale_v
+		draw_rect(Rect2(hp - Vector2(1.2, 1.2), Vector2(2.4, 2.4)), Color(1.0, 0.28, 0.38))
 	for p in data.get("platforms", []):
 		var pos: Vector2 = p.get("pos", Vector2.ZERO) * scale_v
 		var is_dest: bool = p.get("dest", false)

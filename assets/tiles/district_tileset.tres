@@ -1,0 +1,29 @@
+[gd_resource type="TileSet" format=3]
+
+[ext_resource type="Texture2D" uid="uid://bjyrvpweujftr" path="res://assets/tiles/district_tiles.png" id="1_tiles"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_district"]
+texture = ExtResource("1_tiles")
+texture_region_size = Vector2i(16, 16)
+0:0/0 = 0
+0:0/0/custom_data_0 = "platform"
+1:0/0 = 0
+1:0/0/custom_data_0 = "platform"
+2:0/0 = 0
+2:0/0/custom_data_0 = "platform"
+3:0/0 = 0
+3:0/0/custom_data_0 = "platform"
+0:1/0 = 0
+0:1/0/custom_data_0 = "hazard"
+1:1/0 = 0
+1:1/0/custom_data_0 = "start"
+2:1/0 = 0
+2:1/0/custom_data_0 = "wall"
+3:1/0 = 0
+3:1/0/custom_data_0 = "hazard"
+
+[resource]
+tile_size = Vector2i(16, 16)
+custom_data_layer_0/name = "role"
+custom_data_layer_0/type = 4
+sources/0 = SubResource("TileSetAtlasSource_district")

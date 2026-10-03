@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://bha0ard001"]
+
+[ext_resource type="Script" path="res://scripts/world/hazard.gd" id="1_haz"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_haz"]
+size = Vector2(14, 14)
+
+[node name="Hazard" type="Area2D"]
+collision_layer = 16
+collision_mask = 2
+monitoring = true
+script = ExtResource("1_haz")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_haz")

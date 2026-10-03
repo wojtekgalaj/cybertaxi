@@ -26,7 +26,12 @@ func _ready() -> void:
 func setup(origin: Node, destination: Node) -> void:
 	origin_platform = origin
 	destination_platform = destination
-	global_position = origin.get_dock_global() + Vector2(randf_range(-8, 8), 0)
+	var spread := 8.0
+	var span: Variant = origin.get("tile_span")
+	if span is Vector2i and (span as Vector2i).x > 1:
+		var tile_px := float(origin.get("tile_pixel_size"))
+		spread = maxf(8.0, float((span as Vector2i).x) * tile_px * 0.3)
+	global_position = origin.get_dock_global() + Vector2(randf_range(-spread, spread), 0)
 
 
 func _process(delta: float) -> void:
