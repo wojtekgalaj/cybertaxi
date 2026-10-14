@@ -37,17 +37,19 @@ var rng := RandomNumberGenerator.new()
 var _lost: bool = false
 var _won: bool = false
 var _fuel_dead_timer: float = 0.0
+var _gear_hint_msec: int = -10000
 
 
 func _ready() -> void:
 	rng.randomize()
 	_build_level()
 	cab.landed_on_platform.connect(_on_cab_landed)
+	cab.landing_rejected.connect(_on_landing_rejected)
 	call_deferred("_announce")
 
 
 func _announce() -> void:
-	status_message.emit("Land on the cyan tops. Red bellies and hazards crash. SPACE/E on a pad.")
+	status_message.emit("Lower gear (Q / Shift) to land. Cyan tops are safe. SPACE/E on a pad.")
 
 
 func _build_level() -> void:
@@ -168,6 +170,14 @@ func _spawn_one_passenger() -> void:
 	var pax: Node = PassengerScene.instantiate()
 	passengers_root.add_child(pax)
 	pax.setup(origin, dest)
+
+
+func _on_landing_rejected() -> void:
+	var now := Time.get_ticks_msec()
+	if now - _gear_hint_msec < 1600:
+		return
+	_gear_hint_msec = now
+	status_message.emit("Lower the landing gear (Q / Shift)")
 
 
 func _on_cab_landed(platform: Node) -> void:
