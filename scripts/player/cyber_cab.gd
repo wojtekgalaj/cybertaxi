@@ -15,7 +15,7 @@ extends CharacterBody2D
 signal landed_on_platform(platform: Node)
 signal took_off()
 signal out_of_fuel()
-signal landing_rejected
+signal crashed(reason: String)
 
 const BANK_THRESHOLD := 35.0
 const BODY_OFFSET_Y := 2.0
@@ -39,7 +39,7 @@ var _prev_velocity: Vector2 = Vector2.ZERO
 var bump_accumulator: float = 0.0 ## Integrated jerk while carrying passenger.
 var ride_time: float = 0.0
 var _takeoff_grace: float = 0.0
-var _told_gear: bool = false
+var _crashed: bool = false
 
 
 func _ready() -> void:
@@ -62,6 +62,7 @@ func _physics_process(delta: float) -> void:
 	if GameState.fuel <= 0.0 and not grounded:
 		velocity = velocity.move_toward(Vector2(0, 80), 200.0 * delta)
 		move_and_slide()
+		_check_belly_crash()
 		_sync_animation()
 		out_of_fuel.emit()
 		return
@@ -147,24 +148,34 @@ func _begin_gear(raising: bool) -> void:
 
 
 func _check_landing() -> void:
-	if grounded or _takeoff_grace > 0.0:
+	if grounded or _takeoff_grace > 0.0 or _crashed:
 		return
-	var pad := _find_landing_pad()
-	if pad == null:
-		_told_gear = false
+	if _check_belly_crash():
 		return
-	if gear_state != GearState.DOWN:
-		if not _told_gear:
-			_told_gear = true
-			landing_rejected.emit()
-		return
-	_land(pad)
-
-
-func _find_landing_pad() -> Node:
-	## Soft landing: descending slowly onto the top face only.
+	## Soft landing: gear is down, and the cab is settling onto the top face.
 	if velocity.length() > 90.0 or velocity.y < 0.0:
-		return null
+		return
+	var pad := _find_pad_contact()
+	if pad != null:
+		_land(pad)
+
+
+func _check_belly_crash() -> bool:
+	## Touching a pad while the skids are not locked down wrecks the hull.
+	if grounded or _takeoff_grace > 0.0 or _crashed:
+		return false
+	if gear_state == GearState.DOWN:
+		return false
+	if velocity.y < 0.0:
+		return false
+	if _find_pad_contact() == null:
+		return false
+	_crashed = true
+	crashed.emit("Crashed without landing gear")
+	return true
+
+
+func _find_pad_contact() -> Node:
 	for i in get_slide_collision_count():
 		var col := get_slide_collision(i)
 		var collider := col.get_collider()
@@ -172,7 +183,7 @@ func _find_landing_pad() -> Node:
 			return collider
 	if land_ray.is_colliding():
 		var hit := land_ray.get_collider()
-		if hit and hit.is_in_group("platforms") and velocity.y >= 0.0 and velocity.length() < 100.0:
+		if hit and hit.is_in_group("platforms"):
 			return hit
 	return null
 
