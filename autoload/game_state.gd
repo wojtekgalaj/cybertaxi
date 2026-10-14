@@ -16,6 +16,7 @@ var fuel: float = BASE_MAX_FUEL
 var max_fuel: float = BASE_MAX_FUEL
 var fares_completed_this_level: int = 0
 var fares_required_this_level: int = 3
+var death_reason: String = ""
 
 ## Owned upgrade ids (from UpgradeDB).
 var owned_upgrades: Array[String] = []
@@ -42,6 +43,7 @@ func reset_run() -> void:
 	fuel = max_fuel
 	fares_completed_this_level = 0
 	fares_required_this_level = _fares_for_level(level)
+	death_reason = ""
 	run_reset.emit()
 	money_changed.emit(money)
 	fuel_changed.emit(fuel, max_fuel)

@@ -257,7 +257,14 @@ func _fail(reason: String) -> void:
 	if _lost or _won:
 		return
 	_lost = true
-	level_lost.emit(reason)
+	set_process(false)
+	set_physics_process(false)
+	if cab:
+		cab.velocity = Vector2.ZERO
+		cab.set_process(false)
+		cab.set_physics_process(false)
+	GameState.death_reason = reason
+	get_tree().change_scene_to_file("res://scenes/death.tscn")
 
 
 func _draw_bounds_visual() -> void:

@@ -1,0 +1,71 @@
+[gd_scene format=3 uid="uid://bdeath001"]
+
+[ext_resource type="Script" path="res://scripts/ui/death.gd" id="1_death"]
+
+[node name="Death" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_death")
+
+[node name="BG" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.03, 0.06, 1)
+
+[node name="Accent" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 140.0
+offset_right = 640.0
+offset_bottom = 144.0
+color = Color(1, 0.28, 0.38, 0.85)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Center"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Center/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.42, 0.48, 1)
+theme_override_font_sizes/font_size = 36
+text = "WRECKED"
+horizontal_alignment = 1
+
+[node name="Reason" type="Label" parent="Center/VBox"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.78, 0.82, 1)
+theme_override_font_sizes/font_size = 14
+text = "The cab is wrecked."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Spacer" type="Control" parent="Center/VBox"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+
+[node name="RetryButton" type="Button" parent="Center/VBox"]
+custom_minimum_size = Vector2(160, 32)
+layout_mode = 2
+text = "New Shift"
+
+[node name="MenuButton" type="Button" parent="Center/VBox"]
+custom_minimum_size = Vector2(160, 28)
+layout_mode = 2
+text = "Main Menu"
